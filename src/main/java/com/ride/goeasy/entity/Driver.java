@@ -1,142 +1,136 @@
 package com.ride.goeasy.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.*;
 
 @Entity
 public class Driver {
-   private static int count = 101;
-   @Id
-   private int id;
-   private int licNo;
-   private String upiId;
-   private String dname;
-   private String dstatus;
-   private int age;
-   private long mobNo;
-   private String gender;
-   private String mailId;
-   
-   @OneToOne
-   private Vehicle vehicle;
 
-   public static int getCount() {
-	return count;
-   }
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
 
-   public static void setCount(int count) {
-	Driver.count = count;
-   }
+    private String dname;
+    private String licNo;
+    private String upiId;
+    private String dstatus;
+    private Integer age;
+    private Long mobNo;
+    private String gender;
+    private String mailId;
 
-   public int getId() {
-	return id;
-   }
+    @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL)
+    @JsonManagedReference
+    private Vehicle vehicle;
 
-  
+    public Driver() {
+    }
 
-   public int getLicNo() {
-	return licNo;
-   }
+    public Driver(String dname, String licNo, String upiId, String dstatus, Integer age, Long mobNo, String gender, String mailId, Vehicle vehicle) {
+        this.dname = dname;
+        this.licNo = licNo;
+        this.upiId = upiId;
+        this.dstatus = dstatus;
+        this.age = age;
+        this.mobNo = mobNo;
+        this.gender = gender;
+        this.mailId = mailId;
+        setVehicle(vehicle);
+    }
 
-   public void setLicNo(int licNo) {
-	this.licNo = licNo;
-   }
+    public int getId() {
+        return id;
+    }
 
-   public String getUpiId() {
-	return upiId;
-   }
+    
 
-   public void setUpiId(String upiId) {
-	this.upiId = upiId;
-   }
+    public String getDname() {
+        return dname;
+    }
 
-   public String getDname() {
-	return dname;
-   }
+    public void setDname(String dname) {
+        this.dname = dname;
+    }
 
-   public void setDname(String dname) {
-	this.dname = dname;
-   }
+    public String getLicNo() {
+        return licNo;
+    }
 
-   public String getDstatus() {
-	return dstatus;
-   }
+    public void setLicNo(String licNo) {
+        this.licNo = licNo;
+    }
 
-   public void setDstatus(String dstatus) {
-	this.dstatus = dstatus;
-   }
+    public String getUpiId() {
+        return upiId;
+    }
 
-   public int getAge() {
-	return age;
-   }
+    public void setUpiId(String upiId) {
+        this.upiId = upiId;
+    }
 
-   public void setAge(int age) {
-	this.age = age;
-   }
+    public String getDstatus() {
+        return dstatus;
+    }
 
-   public long getMobNo() {
-	return mobNo;
-   }
+    public void setDstatus(String dstatus) {
+        this.dstatus = dstatus;
+    }
 
-   public void setMobNo(long mobNo) {
-	this.mobNo = mobNo;
-   }
+    public Integer getAge() {
+        return age;
+    }
 
-   public String getGender() {
-	return gender;
-   }
+    public void setAge(Integer age) {
+        this.age = age;
+    }
 
-   public void setGender(String gender) {
-	this.gender = gender;
-   }
+    public Long getMobNo() {
+        return mobNo;
+    }
 
-   public String getMailId() {
-	return mailId;
-   }
+    public void setMobNo(Long mobNo) {
+        this.mobNo = mobNo;
+    }
 
-   public void setMailId(String mailId) {
-	this.mailId = mailId;
-   }
+    public String getGender() {
+        return gender;
+    }
 
-   public Vehicle getVehicle() {
-	return vehicle;
-   }
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
 
-   public void setVehicle(Vehicle vehicle) {
-	this.vehicle = vehicle;
-   }
+    public String getMailId() {
+        return mailId;
+    }
 
-   public Driver(int id, int licNo, String upiId, String dname, String dstatus, int age, long mobNo, String gender,
-		String mailId, Vehicle vehicle) {
-	super();
-	this.id = count++;
-	this.licNo = licNo;
-	this.upiId = upiId;
-	this.dname = dname;
-	this.dstatus = dstatus;
-	this.age = age;
-	this.mobNo = mobNo;
-	this.gender = gender;
-	this.mailId = mailId;
-	this.vehicle = vehicle;
-   }
+    public void setMailId(String mailId) {
+        this.mailId = mailId;
+    }
 
-   public Driver() {
-	super();
-	// TODO Auto-generated constructor stub
-   }
+    public Vehicle getVehicle() {
+        return vehicle;
+    }
 
-   @Override
-   public String toString() {
-	return "Driver [id=" + id + ", licNo=" + licNo + ", upiId=" + upiId + ", dname=" + dname + ", dstatus=" + dstatus
-			+ ", age=" + age + ", mobNo=" + mobNo + ", gender=" + gender + ", mailId=" + mailId + ", vehicle=" + vehicle
-			+ "]";
-   }
+    public void setVehicle(Vehicle vehicle) {
+        this.vehicle = vehicle;
+        vehicle.setDriver(this);
+    }
 
-  
-   
-   
-   
+    @Override
+    public String toString() {
+        return "Driver{" +
+                "id=" + id +
+                ", dname='" + dname + '\'' +
+                ", licNo='" + licNo + '\'' +
+                ", upiId='" + upiId + '\'' +
+                ", dstatus='" + dstatus + '\'' +
+                ", age=" + age +
+                ", mobNo=" + mobNo +
+                ", gender='" + gender + '\'' +
+                ", mailId='" + mailId + '\'' +
+                ", vehicle=" + (vehicle != null ? vehicle.getVehicleName() : null) +
+                '}';
+    }
 }
