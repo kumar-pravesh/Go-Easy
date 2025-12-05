@@ -19,6 +19,8 @@ public class Driver {
     private Long mobNo;
     private String gender;
     private String mailId;
+    
+    
 
     @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL)
     @JsonManagedReference

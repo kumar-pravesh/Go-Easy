@@ -10,6 +10,8 @@ public class Vehicle {
     @Id
     private int id; // Same as driver ID
 
+    
+    
     private String vehicleName;
     private String vehicleType;
     private String vehicleNumber;
