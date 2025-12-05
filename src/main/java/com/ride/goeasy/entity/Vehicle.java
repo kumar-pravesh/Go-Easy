@@ -1,143 +1,148 @@
 package com.ride.goeasy.entity;
 
-import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
 
-@Service
+@Entity
 public class Vehicle {
-  private int vehicleId;
-  private String vehicleNumber;
-  private String vehicleName;
-  private String vehicleType;
-  private String vehicleModel;
-  private int vehicleCapacity;
-  private double lat;
-  private double lon;
-  private String avlStatus;
-  private double pricePerKm;
-  
-  @OneToOne
-  private Driver driver;
 
-  public int getVehicleId() {
-	return vehicleId;
-  }
+    @Id
+    private int id; // Same as driver ID
 
-  public void setVehicleId(int vehicleId) {
-	this.vehicleId = vehicleId;
-  }
+    private String vehicleName;
+    private String vehicleType;
+    private String vehicleNumber;
+    private String vehicleModel;
+    private Integer vehicleCapacity;
+    private Double lat;
+    private Double lon;
+    private String avlStatus;
+    private Double pricePerKm;
 
-  public String getVehicleNumber() {
-	return vehicleNumber;
-  }
+    @OneToOne
+    @MapsId
+    @JsonBackReference
+    @JoinColumn(name = "v_id")
+    private Driver driver;
 
-  public void setVehicleNumber(String vehicleNumber) {
-	this.vehicleNumber = vehicleNumber;
-  }
+    public Vehicle() {
+    }
 
-  public String getVehicleName() {
-	return vehicleName;
-  }
+    public Vehicle(String vehicleName, String vehicleType, String vehicleNumber, String vehicleModel,
+                   Integer vehicleCapacity, Double lat, Double lon, String avlStatus, Double pricePerKm ) {
+        this.vehicleName = vehicleName;
+        this.vehicleType = vehicleType;
+        this.vehicleNumber = vehicleNumber;
+        this.vehicleModel = vehicleModel;
+        this.vehicleCapacity = vehicleCapacity;
+        this.lat = lat;
+        this.lon = lon;
+        this.avlStatus = avlStatus;
+        this.pricePerKm = pricePerKm;
+       
+    }
 
-  public void setVehicleName(String vehicleName) {
-	this.vehicleName = vehicleName;
-  }
+    public int getId() {
+        return id;
+    }
 
-  public String getVehicleType() {
-	return vehicleType;
-  }
+     
 
-  public void setVehicleType(String vehicleType) {
-	this.vehicleType = vehicleType;
-  }
+    public String getVehicleName() {
+        return vehicleName;
+    }
 
-  public String getVehicleModel() {
-	return vehicleModel;
-  }
+    public void setVehicleName(String vehicleName) {
+        this.vehicleName = vehicleName;
+    }
 
-  public void setVehicleModel(String vehicleModel) {
-	this.vehicleModel = vehicleModel;
-  }
+    public String getVehicleType() {
+        return vehicleType;
+    }
 
-  public int getVehicleCapacity() {
-	return vehicleCapacity;
-  }
+    public void setVehicleType(String vehicleType) {
+        this.vehicleType = vehicleType;
+    }
 
-  public void setVehicleCapacity(int vehicleCapacity) {
-	this.vehicleCapacity = vehicleCapacity;
-  }
+    public String getVehicleNumber() {
+        return vehicleNumber;
+    }
 
-  public double getLat() {
-	return lat;
-  }
+    public void setVehicleNumber(String vehicleNumber) {
+        this.vehicleNumber = vehicleNumber;
+    }
 
-  public void setLat(double lat) {
-	this.lat = lat;
-  }
+    public String getVehicleModel() {
+        return vehicleModel;
+    }
 
-  public double getLon() {
-	return lon;
-  }
+    public void setVehicleModel(String vehicleModel) {
+        this.vehicleModel = vehicleModel;
+    }
 
-  public void setLon(double lon) {
-	this.lon = lon;
-  }
+    public Integer getVehicleCapacity() {
+        return vehicleCapacity;
+    }
 
-  public String getAvlStatus() {
-	return avlStatus;
-  }
+    public void setVehicleCapacity(Integer vehicleCapacity) {
+        this.vehicleCapacity = vehicleCapacity;
+    }
 
-  public void setAvlStatus(String avlStatus) {
-	this.avlStatus = avlStatus;
-  }
+    public Double getLat() {
+        return lat;
+    }
 
-  public double getPricePerKm() {
-	return pricePerKm;
-  }
+    public void setLat(Double lat) {
+        this.lat = lat;
+    }
 
-  public void setPricePerKm(double pricePerKm) {
-	this.pricePerKm = pricePerKm;
-  }
+    public Double getLon() {
+        return lon;
+    }
 
-  public Driver getDriver() {
-	return driver;
-  }
+    public void setLon(Double lon) {
+        this.lon = lon;
+    }
 
-  public void setDriver(Driver driver) {
-	this.driver = driver;
-  }
+    public String getAvlStatus() {
+        return avlStatus;
+    }
 
-  public Vehicle(int vehicleId, String vehicleNumber, String vehicleName, String vehicleType, String vehicleModel,
-		int vehicleCapacity, double lat, double lon, String avlStatus, double pricePerKm, Driver driver) {
-	super();
-	this.vehicleId = vehicleId;
-	this.vehicleNumber = vehicleNumber;
-	this.vehicleName = vehicleName;
-	this.vehicleType = vehicleType;
-	this.vehicleModel = vehicleModel;
-	this.vehicleCapacity = vehicleCapacity;
-	this.lat = lat;
-	this.lon = lon;
-	this.avlStatus = avlStatus;
-	this.pricePerKm = pricePerKm;
-	this.driver = driver;
-  }
+    public void setAvlStatus(String avlStatus) {
+        this.avlStatus = avlStatus;
+    }
 
-  public Vehicle() {
-	super();
-	// TODO Auto-generated constructor stub
-  }
+    public Double getPricePerKm() {
+        return pricePerKm;
+    }
 
-  @Override
-  public String toString() {
-	return "Vehicle [vehicleId=" + vehicleId + ", vehicleNumber=" + vehicleNumber + ", vehicleName=" + vehicleName
-			+ ", vehicleType=" + vehicleType + ", vehicleModel=" + vehicleModel + ", vehicleCapacity=" + vehicleCapacity
-			+ ", lat=" + lat + ", lon=" + lon + ", avlStatus=" + avlStatus + ", pricePerKm=" + pricePerKm + ", driver="
-			+ driver + "]";
-  }
+    public void setPricePerKm(Double pricePerKm) {
+        this.pricePerKm = pricePerKm;
+    }
 
-  
-  
-  
+    public Driver getDriver() {
+        return driver;
+    }
+
+    public void setDriver(Driver driver) {
+        this.driver = driver;
+    }
+
+    @Override
+    public String toString() {
+        return "Vehicle{" +
+                "id=" + id +
+                ", vehicleName='" + vehicleName + '\'' +
+                ", vehicleType='" + vehicleType + '\'' +
+                ", vehicleNumber='" + vehicleNumber + '\'' +
+                ", vehicleModel='" + vehicleModel + '\'' +
+                ", vehicleCapacity=" + vehicleCapacity +
+                ", lat=" + lat +
+                ", lon=" + lon +
+                ", avlStatus='" + avlStatus + '\'' +
+                ", pricePerKm=" + pricePerKm +
+                 
+                '}';
+    }
 }
