@@ -1,5 +1,7 @@
 package com.ride.goeasy.controller;
 
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,16 +16,20 @@ public class DriverController {
 
     @Autowired
       DriverService driverService;
+    
+    //to perform save operation
 
     @PostMapping("/save")
     public Driver saveDriverVehicle(@RequestBody Driver driver) {
         return driverService.saveDriverWithVehicle(driver);
     }
-    @GetMapping
-    public Driver find(@RequestParam int id){
-		return null;
-    	
+    //find operation
+    @GetMapping("/find")
+    public Optional<Driver> find(@RequestParam int id){
+		Optional<Driver> d= driverService.find( id);
+    	return d;
     }
+    
     
     
 }

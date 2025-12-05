@@ -1,5 +1,7 @@
 package com.ride.goeasy.service;
 
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,4 +21,11 @@ public class DriverService {
         
         return driverRepo.save(driver);
     }
+
+	public Optional<Driver> find(int id) {
+	return	driverRepo.findById(id);
+		 
+	}
+
+	 
 }
