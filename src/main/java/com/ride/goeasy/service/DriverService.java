@@ -26,7 +26,13 @@ public class DriverService {
 
 	}
 
-
+	 public boolean deleteDriverById(int id) {
+	        if (driverRepo.existsById(id)) {
+	            driverRepo.deleteById(id);
+	            return true;
+	        }
+	        return false;
+	    }
 
 
 
