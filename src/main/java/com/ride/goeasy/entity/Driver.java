@@ -14,7 +14,7 @@ import jakarta.persistence.*;
 public class Driver {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Integer id;
 
     private String dname;
     private String licNo;
@@ -46,7 +46,7 @@ public class Driver {
         setVehicle(vehicle);
     }
 
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
