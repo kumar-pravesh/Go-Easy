@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.ride.goeasy.dto.LocationDetails;
 import com.ride.goeasy.entity.Driver;
 import com.ride.goeasy.service.DriverService;
 
@@ -28,6 +30,15 @@ public class DriverController {
     public Optional<Driver> find(@RequestParam int id){
 		Optional<Driver> d= driverService.find( id);
     	return d;
+    }
+    
+    //  NEW API: Fetch city, state, pincode using lat/lon
+    @GetMapping("/location")
+    public LocationDetails getLocation(
+            @RequestParam double lat,
+            @RequestParam double lon) {
+
+        return driverService.getCityFromCoords(lat, lon);
     }
     
     
