@@ -36,6 +36,7 @@ public class DriverController {
 		Optional<Driver> d = driverService.find(id);
 		return d;
 	}
+	//delete operation
 	@DeleteMapping("/delete")
 	public String delete(@RequestParam int id) {
 
