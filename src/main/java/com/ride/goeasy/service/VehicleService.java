@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,8 +18,10 @@ import com.ride.goeasy.entity.Customer;
 import com.ride.goeasy.entity.Vehicle;
 import com.ride.goeasy.exception.CustomerNotFoundException;
 import com.ride.goeasy.exception.InvalidLocationException;
+import com.ride.goeasy.exception.VehicleNotFoundException;
 import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.repository.VehicleRepo;
+import com.ride.goeasy.response.ResponseStructure;
 
 @Service
 public class VehicleService {
@@ -106,6 +109,13 @@ public class VehicleService {
 
 			vehicleDetails.add(dto);
 		}
+		
+	
+		
+		
+		
+		
+		
 
 		// STEP 6: Prepare Final Response
 		AvailableVehicleDTO response = new AvailableVehicleDTO();
@@ -117,4 +127,19 @@ public class VehicleService {
 
 		return response;
 	}
+	
+//	// finding vehicle by vehicle number
+//	public ResponseStructure<Vehicle> findByVno(String vehicleNumber){
+//
+//	    Vehicle vehicle = vehicleRepo.findByVehicleNumber(vehicleNumber)
+//	            .orElseThrow(() -> new VehicleNotFoundException("Vehicle Not Found with vehicleNumber: " + vehicleNumber));
+//
+//	    ResponseStructure<Vehicle> rs = new ResponseStructure<>();
+//	    rs.setData(vehicle);
+//	    rs.setMessage("Vehicle found successfully");
+//	    rs.setStatusCode(HttpStatus.OK.value());
+//
+//	    return rs;
+//	}
+
 }

@@ -4,8 +4,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
+ 
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 
 @Entity
 public class Booking {
@@ -16,13 +17,13 @@ public class Booking {
 
 	// MANY BOOKINGS → ONE CUSTOMER
 	@ManyToOne
-	@JoinColumn(name = "customer_id")
+	
 	private Customer customer;
 
-	// MANY BOOKINGS → ONE DRIVER
+	// MANY BOOKINGS → ONE Vehicle
 	@ManyToOne
-	@JoinColumn(name = "driver_id")
-	private Driver driver;
+
+	private Vehicle vehicle;
 
 	private String sourceLocation;
 	private String destinationLocation;
@@ -32,31 +33,29 @@ public class Booking {
 	private String estimatedTime; // e.g. "20 mins"
 
 	private String bookingStatus; // BOOKED, CANCELLED, COMPLETED
+	
+	@OneToOne
+	private Payment payment;
 
-	public Booking() {
-	}
-
-	public Booking(int id, Customer customer, Driver driver, String sourceLocation, String destinationLocation,
-			Double distance, Double fare, String estimatedTime, String bookingStatus) {
+	public Booking(Customer customer, Vehicle vehicle, String sourceLocation, String destinationLocation,
+			Double distance, Double fare, String estimatedTime, String bookingStatus, Payment payment) {
 		super();
-		this.id = id;
 		this.customer = customer;
-		this.driver = driver;
+		this.vehicle = vehicle;
 		this.sourceLocation = sourceLocation;
 		this.destinationLocation = destinationLocation;
 		this.distance = distance;
 		this.fare = fare;
 		this.estimatedTime = estimatedTime;
 		this.bookingStatus = bookingStatus;
+		this.payment = payment;
 	}
 
 	public int getId() {
 		return id;
 	}
 
-	public void setId(int id) {
-		this.id = id;
-	}
+	 
 
 	public Customer getCustomer() {
 		return customer;
@@ -66,12 +65,12 @@ public class Booking {
 		this.customer = customer;
 	}
 
-	public Driver getDriver() {
-		return driver;
+	public Vehicle getVehicle() {
+		return vehicle;
 	}
 
-	public void setDriver(Driver driver) {
-		this.driver = driver;
+	public void setVehicle(Vehicle vehicle) {
+		this.vehicle = vehicle;
 	}
 
 	public String getSourceLocation() {
@@ -121,6 +120,22 @@ public class Booking {
 	public void setBookingStatus(String bookingStatus) {
 		this.bookingStatus = bookingStatus;
 	}
+
+	public Payment getPayment() {
+		return payment;
+	}
+
+	public void setPayment(Payment payment) {
+		this.payment = payment;
+	}
+
+	public Booking() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+	
+
+	 
 
 	
 }

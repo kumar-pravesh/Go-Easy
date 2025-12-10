@@ -1,6 +1,7 @@
 package com.ride.goeasy.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,4 +21,6 @@ public interface VehicleRepo extends JpaRepository<Vehicle, Integer> {
 	@Query("SELECT v FROM Vehicle v WHERE v.avlStatus = 'AVAILABLE' AND v.city = :city")
 	List<Vehicle> findAvailableVehiclesInCity(String city);
 
+	
+	Optional<Vehicle> findByVehicleNumber(String vehicleNumber);
 }

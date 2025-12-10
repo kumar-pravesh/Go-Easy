@@ -1,36 +1,76 @@
 package com.ride.goeasy.dto;
 
 public class BookingRequestDTO {
-	 private int customerId;
-	    private int driverId;
-	    private String pickupLocation;   
-	    private String dropLocation;     
+	  
 
-	    public int getCustomerId() {
-	        return customerId;
-	    }
-	    public void setCustomerId(int customerId) {
-	        this.customerId = customerId;
-	    }
+    private String sourceLocation;
+    private String destinationLocation;
 
-	    public int getDriverId() {
-	        return driverId;
-	    }
-	    public void setDriverId(int driverId) {
-	        this.driverId = driverId;
-	    }
+    private Double distance;       // you already calculate from matrix API
+    private Double fare;           // calculated using vehicle.pricePerKm
+    private String estimatedTime;  // also calculated
 
-	    public String getPickupLocation() {
-	        return pickupLocation;
-	    }
-	    public void setPickupLocation(String pickupLocation) {
-	        this.pickupLocation = pickupLocation;
-	    }
+    private String vehicleNumber;  // ⭐ customer selects one vehicle
 
-	    public String getDropLocation() {
-	        return dropLocation;
-	    }
-	    public void setDropLocation(String dropLocation) {
-	        this.dropLocation = dropLocation;
-	    }
+    // OPTIONAL but recommended:
+    private String paymentMode;    // UPI, CASH, CARD
+
+	public String getSourceLocation() {
+		return sourceLocation;
+	}
+
+	public void setSourceLocation(String sourceLocation) {
+		this.sourceLocation = sourceLocation;
+	}
+
+	public String getDestinationLocation() {
+		return destinationLocation;
+	}
+
+	public void setDestinationLocation(String destinationLocation) {
+		this.destinationLocation = destinationLocation;
+	}
+
+	public Double getDistance() {
+		return distance;
+	}
+
+	public void setDistance(Double distance) {
+		this.distance = distance;
+	}
+
+	public Double getFare() {
+		return fare;
+	}
+
+	public void setFare(Double fare) {
+		this.fare = fare;
+	}
+
+	public String getEstimatedTime() {
+		return estimatedTime;
+	}
+
+	public void setEstimatedTime(String estimatedTime) {
+		this.estimatedTime = estimatedTime;
+	}
+
+	public String getVehicleNumber() {
+		return vehicleNumber;
+	}
+
+	public void setVehicleNumber(String vehicleNumber) {
+		this.vehicleNumber = vehicleNumber;
+	}
+
+	public String getPaymentMode() {
+		return paymentMode;
+	}
+
+	public void setPaymentMode(String paymentMode) {
+		this.paymentMode = paymentMode;
+	}
+    
+    
+	
 }
