@@ -35,6 +35,18 @@ public class Customer {
 	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
 	@JsonIgnore
 	private List<Booking> bookings;
+	
+	private  boolean activeBookingFlag;
+	
+	
+
+	public boolean isActiveBookingFlag() {
+		return activeBookingFlag;
+	}
+
+	public void setActiveBookingFlag(boolean activeBookingFlag) {
+		this.activeBookingFlag = activeBookingFlag;
+	}
 
 	public Customer() {
 	}

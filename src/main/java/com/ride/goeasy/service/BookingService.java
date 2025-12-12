@@ -2,6 +2,7 @@ package com.ride.goeasy.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -96,17 +97,18 @@ public class BookingService {
 
 
 		// STEP 5: Create Booking
-		List<Booking> list = bookingRepo.findByCustomerMobno(mobno);
-		for (Booking bh : list) {
-			if (bh.isActiveBookingFlag() == true) {
-				ResponseStructure<Booking> rs = new ResponseStructure<Booking>();
+		 
+		 Optional<Customer> c=customerRepo.findByMobno(mobno);
+		 Customer cust1= c.get();
+		 if(cust1.isActiveBookingFlag()==true) {
+			 ResponseStructure<Booking> rs = new ResponseStructure<>();
 				rs.setStatusCode(HttpStatus.CREATED.value());
-				rs.setMessage("Your ride has not completed -> You can only book after the completion of current ride.");
+				rs.setMessage("Your current ride has not comleted");
 				rs.setData(null);
 
 				return rs;
-			}
-		}
+		 }
+		 
 		Booking b = new Booking();
 		b.setCustomer(cust);
 		b.setVehicle(vehicle);
@@ -117,6 +119,8 @@ public class BookingService {
 		b.setEstimatedTime(bookingRequestDTO.getEstimatedTime());
 		b.setBookingStatus("Booked");
 		b.setPayment(null);
+		b.setActiveBookingFlag(true);
+		cust.setActiveBookingFlag(true);
 
 		// STEP 6: Save
 		Booking savedBooking = bookingRepo.save(b);
@@ -135,30 +139,7 @@ public class BookingService {
 	public ResponseStructure<List<BookingHistoryDTO>> getCustomerBookingHistory(long mobno) {
 
 		List<Booking> list = bookingRepo.findByCustomerMobno(mobno);
-		List<BookingHistoryDTO> l = new ArrayList<BookingHistoryDTO>();
-		for (Booking b : list) {
-
-			BookingHistoryDTO bhdto = new BookingHistoryDTO();
-			bhdto.setBookingId(b.getId());
-			bhdto.setCustomerName(b.getCustomer().getName());
-			bhdto.setBookingStatus(b.getBookingStatus());
-			bhdto.setDestinationLocation(b.getDestinationLocation());
-			bhdto.setSourceLocation(b.getSourceLocation());
-			bhdto.setDistance(b.getDistance());
-			bhdto.setEstimatedTime(b.getEstimatedTime());
-			bhdto.setFare(b.getFare());
-			bhdto.setPaymentStatus("Done");
-			bhdto.setVehicleType(b.getVehicle().getVehicleType());
-
-			l.add(bhdto);
-		}
-
-		ResponseStructure<List<BookingHistoryDTO>> rs = new ResponseStructure<>();
-		rs.setStatusCode(200);
-		rs.setMessage("Customer Booking History");
-		rs.setData(l);
-
-		return rs;
+		 return bookingHistory(list);
 	}
 
 //	Active Booking 
@@ -200,6 +181,10 @@ public class BookingService {
 	public ResponseStructure<List<BookingHistoryDTO>> getDriverBookingHistory(long mobNo) {
 
 		List<Booking> list = bookingRepo.findByVehicleDriverMobNo(mobNo);
+
+		 return bookingHistory(list);
+	}
+	public ResponseStructure<List<BookingHistoryDTO>> bookingHistory(List<Booking> list){ 
 
 		List<BookingHistoryDTO> l = new ArrayList<BookingHistoryDTO>();
 		for (Booking b : list) {
