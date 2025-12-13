@@ -6,9 +6,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.ride.goeasy.dto.PaymentByCashDTO;
+import com.ride.goeasy.dto.PaymentDTO;
+import com.ride.goeasy.entity.Booking;
+import com.ride.goeasy.entity.Customer;
 import com.ride.goeasy.entity.Driver;
+import com.ride.goeasy.entity.Payment;
+import com.ride.goeasy.entity.Vehicle;
+import com.ride.goeasy.exception.BookingNotFoundException;
 import com.ride.goeasy.exception.DriverNotFoundException;
+import com.ride.goeasy.repository.BookingRepo;
+import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.repository.DriverRepo;
+import com.ride.goeasy.repository.PaymentRepo;
+import com.ride.goeasy.repository.VehicleRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
 @Service
@@ -16,8 +27,16 @@ public class DriverService {
 
 	@Autowired
 	DriverRepo driverRepo;
-
+    @Autowired
+    BookingRepo bookingRepo;
 //	Save Driver method
+    @Autowired
+    PaymentRepo paymentRepo;
+    @Autowired
+    CustomerRepo customerRepo;
+    @Autowired
+    VehicleRepo vehicleRepo;
+    
 	public ResponseStructure<Driver> saveDriverWithVehicle(Driver driver) {
 
 		
@@ -91,6 +110,51 @@ public class DriverService {
 	    rs.setData(updatedDriver);
 
 	    return rs;
+	}
+
+	public ResponseStructure<PaymentByCashDTO> confirmPaymnetByCash(int bookingId) {
+		 Booking b= bookingRepo.findById(bookingId).orElseThrow(( )->new BookingNotFoundException("Booking not found with id:"+ bookingId));
+		 b.setBookingStatus("COMPLETED");
+	Customer c=	 b.getCustomer() ;
+	c.setActiveBookingFlag(false);
+	
+	Vehicle v=	 b.getVehicle() ;
+	v.setAvlStatus("AVAILABLE");
+		 b.setActiveBookingFlag(false);
+		
+		 Payment p=new Payment();
+		   p.setVehicle(v);
+		   p.setCustomer(c);
+		   p.setBooking(b);
+		   p.setPaymentStatus("PAID");
+		   p.setPaymentType("CASH");
+		   
+	bookingRepo.save(b);
+	customerRepo.save(c);
+	vehicleRepo.save(v);
+	paymentRepo.save(p);
+		   
+		   
+	PaymentByCashDTO pdto=new PaymentByCashDTO();
+	pdto.setBookingId(b.getId());
+	pdto.setCustomerId(c.getId());
+	pdto.setDriverId(v.getId());
+	pdto.setAmountPaid(b.getFare());
+	pdto.setPaymentType("CASH");
+	pdto.setPaymentStatus("PAID");
+	  
+			
+	 ResponseStructure<PaymentByCashDTO> rs = new ResponseStructure<>();
+	    rs.setStatusCode(HttpStatus.OK.value());
+	    rs.setMessage("Ride completed ->Amount paid");
+	    rs.setData(pdto);
+
+	    return rs;
+		   
+		 
+	
+		 
+		 
 	}
 
 

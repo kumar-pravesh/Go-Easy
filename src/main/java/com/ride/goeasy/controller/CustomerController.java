@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ride.goeasy.dto.CustomerDTO;
 import com.ride.goeasy.dto.CustomerResponseDTO;
-
+import com.ride.goeasy.dto.PaymentDTO;
 import com.ride.goeasy.response.ResponseStructure;
 import com.ride.goeasy.service.CustomerService;
 
@@ -47,6 +47,6 @@ public class CustomerController {
 	            @RequestBody CustomerDTO dto) {
 	        return customerService.updateCustomer(mobno, dto);
 	    }
-	    
+	   
 	    
 }

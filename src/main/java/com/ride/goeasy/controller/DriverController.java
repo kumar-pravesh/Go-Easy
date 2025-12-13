@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ride.goeasy.dto.BookingHistoryDTO;
+import com.ride.goeasy.dto.PaymentByCashDTO;
+import com.ride.goeasy.dto.PaymentDTO;
 import com.ride.goeasy.entity.Booking;
 import com.ride.goeasy.entity.Driver;
 import com.ride.goeasy.response.ResponseStructure;
@@ -71,6 +73,10 @@ public class DriverController {
 //	    
 //	}
 	
+	@PostMapping("/payByCash")
+	 public ResponseStructure<PaymentByCashDTO> confirmPaymentByCash(@RequestParam int bookingId){
+	    	return driverService.confirmPaymnetByCash(bookingId);
+	    }
 	
 
 }
