@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.ride.goeasy.dto.CustomerDTO;
 import com.ride.goeasy.dto.CustomerResponseDTO;
+import com.ride.goeasy.dto.PaymentDTO;
 import com.ride.goeasy.entity.Customer;
 import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.response.ResponseStructure;
@@ -118,6 +119,8 @@ public class CustomerService {
 
 	        return res;
 	    }
+
+		 
 
 
 }
