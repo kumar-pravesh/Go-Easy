@@ -1,15 +1,17 @@
 package com.ride.goeasy.service;
-
-
+ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.ride.goeasy.dto.BookingHistoryDTO;
 import com.ride.goeasy.dto.CustomerDTO;
 import com.ride.goeasy.dto.CustomerResponseDTO;
-import com.ride.goeasy.dto.PaymentDTO;
+import com.ride.goeasy.dto.RideDetailsDTO;
+import com.ride.goeasy.entity.Booking;
 import com.ride.goeasy.entity.Customer;
+import com.ride.goeasy.exception.CustomerNotFoundException;
 import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
@@ -19,7 +21,8 @@ public class CustomerService {
 	   @Autowired
 	    private CustomerRepo customerRepo;
 
-	   
+	   @Autowired
+	   BookingService bs;
 
 	    // SAVE CUSTOMER
 	    public ResponseStructure<CustomerResponseDTO> saveCustomer(CustomerDTO dto) {
@@ -49,7 +52,7 @@ public class CustomerService {
 	    public ResponseStructure<CustomerResponseDTO> findCustomer(Long mobno) {
 
 	        Customer c = customerRepo.findByMobno(mobno)
-	                .orElseThrow(() -> new RuntimeException("Customer Not Found with Mobile: " + mobno));
+	                .orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
 
 	        CustomerResponseDTO res = convertToResponse(c);
 
@@ -65,7 +68,7 @@ public class CustomerService {
 	    public ResponseStructure<CustomerResponseDTO> deleteCustomer(Long mobno) {
 
 	        Customer c = customerRepo.findByMobno(mobno)
-	                .orElseThrow(() -> new RuntimeException("Customer Not Found with Mobile: " + mobno));
+	                .orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
 
 	        customerRepo.delete(c);
 
@@ -83,7 +86,7 @@ public class CustomerService {
 	    public ResponseStructure<CustomerResponseDTO> updateCustomer(Long mobno, CustomerDTO dto) {
 
 	        Customer c = customerRepo.findByMobno(mobno)
-	                .orElseThrow(() -> new RuntimeException("Customer Not Found with Mobile: " + mobno));
+	                .orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
 
 	        c.setName(dto.getName());
 	        c.setAge(dto.getAge());
@@ -105,7 +108,7 @@ public class CustomerService {
 	    }
 	    
 	    
-	    // ===== Helper Method =====
+	    
 	    private CustomerResponseDTO convertToResponse(Customer c) {
 
 	        CustomerResponseDTO res = new CustomerResponseDTO();
@@ -120,6 +123,20 @@ public class CustomerService {
 	        return res;
 	    }
 
+		public ResponseStructure<BookingHistoryDTO> getDriverBookingHistory(long mobno) {
+		
+			Customer c=	customerRepo.findByMobno(mobno).orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
+	        List<Booking> blist= c.getBookings();
+	     return   bs.getBookingHistory(blist);
+			 
+		}
+
+		public ResponseStructure<RideDetailsDTO> getDriverActiveBooking(long mobNo) {
+			Customer c=	customerRepo.findByMobno(mobNo).orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobNo));
+	        List<Booking> blist= c.getBookings();
+		return	 bs.activeBookingHistory(blist);
+		}
+ 
 		 
 
 

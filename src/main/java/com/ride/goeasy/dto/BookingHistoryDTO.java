@@ -1,102 +1,26 @@
 package com.ride.goeasy.dto;
 
+import java.util.List;
+
 public class BookingHistoryDTO {
 
-	private int bookingId;
-
-    private String sourceLocation;
-    private String destinationLocation;
-
-    private Double distance;
-    private Double fare;
-    private String estimatedTime;
-
-    private String bookingStatus;
-
-    private String customerName;
-    private String vehicleType;
-
-    private String paymentStatus;
-
-	public int getBookingId() {
-		return bookingId;
+	private double totalAmt;
+	private List<RideDetailsDTO> rlist;
+	
+	
+	public double getTotalAmt() {
+		return totalAmt;
 	}
-
-	public void setBookingId(int bookingId) {
-		this.bookingId = bookingId;
+	public void setTotalAmt(double totalAmt) {
+		this.totalAmt = totalAmt;
 	}
-
-	public String getSourceLocation() {
-		return sourceLocation;
+	public List<RideDetailsDTO> getRlist() {
+		return rlist;
 	}
-
-	public void setSourceLocation(String sourceLocation) {
-		this.sourceLocation = sourceLocation;
+	public void setRlist(List<RideDetailsDTO> rlist) {
+		this.rlist = rlist;
 	}
-
-	public String getDestinationLocation() {
-		return destinationLocation;
-	}
-
-	public void setDestinationLocation(String destinationLocation) {
-		this.destinationLocation = destinationLocation;
-	}
-
-	public Double getDistance() {
-		return distance;
-	}
-
-	public void setDistance(Double distance) {
-		this.distance = distance;
-	}
-
-	public Double getFare() {
-		return fare;
-	}
-
-	public void setFare(Double fare) {
-		this.fare = fare;
-	}
-
-	public String getEstimatedTime() {
-		return estimatedTime;
-	}
-
-	public void setEstimatedTime(String estimatedTime) {
-		this.estimatedTime = estimatedTime;
-	}
-
-	public String getBookingStatus() {
-		return bookingStatus;
-	}
-
-	public void setBookingStatus(String bookingStatus) {
-		this.bookingStatus = bookingStatus;
-	}
-
-	public String getCustomerName() {
-		return customerName;
-	}
-
-	public void setCustomerName(String customerName) {
-		this.customerName = customerName;
-	}
-
-	public String getVehicleType() {
-		return vehicleType;
-	}
-
-	public void setVehicleType(String vehicleType) {
-		this.vehicleType = vehicleType;
-	}
-
-	public String getPaymentStatus() {
-		return paymentStatus;
-	}
-
-	public void setPaymentStatus(String paymentStatus) {
-		this.paymentStatus = paymentStatus;
-	}
-    
-    
+ 
+	
+	
 }

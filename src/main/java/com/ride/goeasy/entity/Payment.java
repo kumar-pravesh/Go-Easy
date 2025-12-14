@@ -14,7 +14,7 @@ import jakarta.persistence.OneToOne;
 public class Payment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private int id;
 
     // Many payments can belong to one customer

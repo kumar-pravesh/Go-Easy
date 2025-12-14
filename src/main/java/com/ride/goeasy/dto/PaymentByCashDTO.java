@@ -6,8 +6,21 @@ public class PaymentByCashDTO {
   private int driverId;
   
   private double amountPaid;
-  private String paymentType;
+  private  String paymentType ;
   
+  
+  
+  
+   
+
+  public String getPaymentType() {
+	return paymentType;
+}
+
+  public void setPaymentType(String paymentType) {
+	this.paymentType = paymentType;
+  }
+
   private String paymentStatus;
 
   public int getBookingId() {
@@ -42,13 +55,7 @@ public class PaymentByCashDTO {
 	this.amountPaid = amountPaid;
   }
 
-  public String getPaymentType() {
-	return paymentType;
-  }
-
-  public void setPaymentType(String paymentType) {
-	this.paymentType = paymentType;
-  }
+  
 
   public String getPaymentStatus() {
 	return paymentStatus;

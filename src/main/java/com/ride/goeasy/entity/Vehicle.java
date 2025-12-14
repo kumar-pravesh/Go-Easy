@@ -22,7 +22,7 @@ public class Vehicle {
 	private Double pricePerKm;
 	
 	@Column(nullable = true)
-    private Double avgspeed = 0.0;
+    private Double avgspeed ;
 
 	@OneToOne
 	@MapsId

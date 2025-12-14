@@ -32,8 +32,9 @@ public class Customer {
 	private String currentLocation;
 
 	// One Customer -> Many Bookings
-	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
-	@JsonIgnore
+	@OneToMany
+	 
+	 @JsonIgnore
 	private List<Booking> bookings;
 	
 	private  boolean activeBookingFlag;
