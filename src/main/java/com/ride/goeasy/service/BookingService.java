@@ -208,7 +208,7 @@ public class BookingService {
 				  
 				  ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
 					rs.setStatusCode(HttpStatus.OK.value());
-					rs.setMessage("Ride completed ->Amount paid");
+					rs.setMessage("Ongoing- not completed yet");
 					rs.setData(rdto);
 
 					return rs;
