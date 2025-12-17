@@ -38,8 +38,20 @@ public class Customer {
 	private List<Booking> bookings;
 	
 	private  boolean activeBookingFlag;
+    private int cancellationCount;
+   
+    
 	
 	
+
+ 
+	public int getCancellationCount() {
+		return cancellationCount;
+	}
+
+	public void setCancellationCount(int cancellationCount) {
+		this.cancellationCount = cancellationCount;
+	}
 
 	public boolean isActiveBookingFlag() {
 		return activeBookingFlag;

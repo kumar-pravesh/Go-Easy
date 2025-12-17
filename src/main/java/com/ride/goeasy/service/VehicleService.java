@@ -83,7 +83,7 @@ public class VehicleService {
 
 		// Fetch Available Vehicles in the city
 		List<Vehicle> availableVehicles = vehicleRepo.findAvailableVehiclesInCity(city);
-
+       int cancellationCount= customer.getCancellationCount();
 		List<VehicleDetailDTO> vehicleDetails = new ArrayList<>();
 		System.out.println(availableVehicles);
 		// STEP 5: Fare and Time Calculation
@@ -95,9 +95,14 @@ public class VehicleService {
 			dto.setAverageSpeed(v.getAvgspeed());
 
 			double fare = v.getPricePerKm() * distance;
+			double penalty= (fare/10)*cancellationCount;
+			double totalAmount= fare+penalty;
 			double time = distance / v.getAvgspeed();
 
 			dto.setEstimatedFare(fare);
+			dto.setPenalty(penalty);
+			dto.setTotalAmout(totalAmount);
+			
 			dto.setEstimatedTime(time);
 
 			vehicleDetails.add(dto);

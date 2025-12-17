@@ -11,8 +11,15 @@ import com.ride.goeasy.dto.CustomerResponseDTO;
 import com.ride.goeasy.dto.RideDetailsDTO;
 import com.ride.goeasy.entity.Booking;
 import com.ride.goeasy.entity.Customer;
+import com.ride.goeasy.entity.Driver;
+import com.ride.goeasy.entity.Vehicle;
+import com.ride.goeasy.enums.BookingStatus;
+import com.ride.goeasy.exception.BookingNotFoundException;
 import com.ride.goeasy.exception.CustomerNotFoundException;
+import com.ride.goeasy.repository.BookingRepo;
 import com.ride.goeasy.repository.CustomerRepo;
+import com.ride.goeasy.repository.DriverRepo;
+import com.ride.goeasy.repository.VehicleRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
 @Service
@@ -20,10 +27,21 @@ public class CustomerService {
 	
 	   @Autowired
 	    private CustomerRepo customerRepo;
+	   
+	   @Autowired
+	   private BookingRepo bookingRepo;
+	   
+	   @Autowired
+	   private DriverRepo driverRepo;
+	   
+	   @Autowired
+	   private VehicleRepo vehicleRepo;
+	   
 
 	   @Autowired
 	   BookingService bs;
-
+    @Autowired
+        BookingRepo br;
 	    // SAVE CUSTOMER
 	    public ResponseStructure<CustomerResponseDTO> saveCustomer(CustomerDTO dto) {
 
@@ -135,6 +153,34 @@ public class CustomerService {
 			Customer c=	customerRepo.findByMobno(mobNo).orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobNo));
 	        List<Booking> blist= c.getBookings();
 		return	 bs.activeBookingHistory(blist);
+		}
+
+		public ResponseStructure<String> cancellRide(int bookingId) {
+			 
+			 Booking b= br.findById(bookingId).orElseThrow(() -> new BookingNotFoundException("No any booking with given id:"+ bookingId));
+			 Customer c= b.getCustomer();
+			 Vehicle v=b.getVehicle();
+			 Driver d=v.getDriver();
+					 c.setActiveBookingFlag(false);
+					 b.setActiveBookingFlag(false);
+					 b.setBookingStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
+					 d.setDstatus("AVAILABLE");
+					
+					
+					 int count=c.getCancellationCount()+1;
+			   c.setCancellationCount(count);
+			   
+			   customerRepo.save(c);
+			   bookingRepo.save(b);
+			   driverRepo.save(d);
+			   vehicleRepo.save(v);
+					 
+			 ResponseStructure<String> rs= new ResponseStructure<String>();
+			  rs.setStatusCode(HttpStatus.OK.value());
+		        rs.setMessage("Booking Cencel Request Accepted");
+		        rs.setData("Booking cancelled by customer");
+
+		 
 		}
  
 		 

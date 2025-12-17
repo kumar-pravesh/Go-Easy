@@ -5,11 +5,26 @@ public class VehicleDetailDTO {
 	    private String vehicleNumber;
 	    private double pricePerKm;
 	    private double averageSpeed;
-
+        private double penalty;
+        private double totalAmout;
 	    private double estimatedFare;
 	    private double estimatedTime;
 	    
 	    
+	    
+	    
+		public double getPenalty() {
+			return penalty;
+		}
+		public void setPenalty(double penalty) {
+			this.penalty = penalty;
+		}
+		public double getTotalAmout() {
+			return totalAmout;
+		}
+		public void setTotalAmout(double totalAmout) {
+			this.totalAmout = totalAmout;
+		}
 		public String getModel() {
 			return model;
 		}

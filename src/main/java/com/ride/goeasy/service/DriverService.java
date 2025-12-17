@@ -199,6 +199,7 @@ public class DriverService {
 
 		Customer c = b.getCustomer();
 		c.setActiveBookingFlag(false);
+		c.setCancellationCount(0);
 
 		Vehicle v = b.getVehicle();
 		v.setAvlStatus("AVAILABLE");
@@ -262,7 +263,13 @@ public class DriverService {
 		Driver d = v.getDriver();
 		Customer c = b.getCustomer();
 
+
+	    Customer c = b.getCustomer();
+	    c.setActiveBookingFlag(false);
+	    c.setCancellationCount(0);
+
 		double fare = b.getFare();
+
 
 		// 🔹 Create UPI intent
 		String upiString = "upi://pay?pa=" + d.getUpiId() + "&pn=" + d.getDname() + "&am=" + fare + "&cu=INR";
