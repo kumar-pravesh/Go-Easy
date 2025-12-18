@@ -12,6 +12,7 @@ import com.ride.goeasy.dto.RideDetailsDTO;
 import com.ride.goeasy.entity.Booking;
 import com.ride.goeasy.entity.Customer;
 import com.ride.goeasy.entity.Driver;
+import com.ride.goeasy.entity.Payment;
 import com.ride.goeasy.entity.Vehicle;
 import com.ride.goeasy.enums.BookingStatus;
 import com.ride.goeasy.exception.BookingNotFoundException;
@@ -19,6 +20,7 @@ import com.ride.goeasy.exception.CustomerNotFoundException;
 import com.ride.goeasy.repository.BookingRepo;
 import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.repository.DriverRepo;
+import com.ride.goeasy.repository.PaymentRepo;
 import com.ride.goeasy.repository.VehicleRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
@@ -37,7 +39,8 @@ public class CustomerService {
 	   @Autowired
 	   private VehicleRepo vehicleRepo;
 	   
-
+   @Autowired
+     PaymentRepo pr;
 	   @Autowired
 	   BookingService bs;
     @Autowired
@@ -155,6 +158,8 @@ public class CustomerService {
 		return	 bs.activeBookingHistory(blist);
 		}
 
+		
+//		cancel ride by customer
 		public ResponseStructure<String> cancellRide(int bookingId) {
 			 
 			 Booking b= br.findById(bookingId).orElseThrow(() -> new BookingNotFoundException("No any booking with given id:"+ bookingId));
@@ -165,15 +170,25 @@ public class CustomerService {
 					 b.setActiveBookingFlag(false);
 					 b.setBookingStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
 					 d.setDstatus("AVAILABLE");
-					
+				Payment p= b.getPayment();	
 					
 					 int count=c.getCancellationCount()+1;
 			   c.setCancellationCount(count);
+			   p.setPaymentStatus("Cancelled By customer");
+			   p.setAmount(0);
+			   p.setPaymentType("Ride cancelled");
+			   p.setCustomer(c);
+			   p.setBooking(b);
+			   p.setVehicle(v);
+			   
+			   pr.save(p);
 			   
 			   customerRepo.save(c);
 			   bookingRepo.save(b);
 			   driverRepo.save(d);
 			   vehicleRepo.save(v);
+			   
+			   
 					 
 			 ResponseStructure<String> rs= new ResponseStructure<String>();
 			  rs.setStatusCode(HttpStatus.OK.value());
