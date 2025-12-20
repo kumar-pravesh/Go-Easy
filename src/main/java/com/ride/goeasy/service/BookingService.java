@@ -48,7 +48,8 @@ public class BookingService {
 	private PaymentRepo paymentRepo;
 	@Value("${locationiq.api.key}")
 	private String apiKey;
-	 
+	@Autowired
+	private MailService mailService;
 
 	public ResponseStructure<Booking> bookVehicle(long mobno, BookingRequestDTO bookingRequestDTO) {
 
@@ -98,13 +99,12 @@ public class BookingService {
 
 		// STEP 5: Create Booking
 
-		 
 		if (cust.isActiveBookingFlag() == true) {
 			ResponseStructure<Booking> rs = new ResponseStructure<>();
 			rs.setStatusCode(HttpStatus.CREATED.value());
 			rs.setMessage("Your current ride has not comleted");
 			rs.setData(null);
-
+		
 			return rs;
 		}
 
@@ -126,149 +126,130 @@ public class BookingService {
 		b.setBookingStatus(BookingStatus.BOOKED);
 		b.setPayment(p);
 		b.setActiveBookingFlag(true);
-	  cust.getBookings().add(b);
-	    Driver d=vehicle.getDriver();
-	    
-	    d.getDblist().add(b);
- 
-	 
-	 
-	     
+		cust.getBookings().add(b);
+		Driver d = vehicle.getDriver();
+
+		d.getDblist().add(b);
 
 		// STEP 6: Save
 		Booking savedBooking = bookingRepo.save(b);
 		customerRepo.save(cust);
 		vr.save(vehicle);
 		dr.save(d);
-		
-		 
 
 		// STEP 7: Response
 		ResponseStructure<Booking> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.CREATED.value());
 		rs.setMessage(" Vehicle booked successfully");
 		rs.setData(savedBooking);
+		mailService.sendMail("kuchuruanudeepreddy@gmail.com", "BOOKING CONFIRMED FOR "+vehicle.getVehicleName(), "Your ride has been booked"+"\n driver name: "+d.getDname()+" \ndriver mob: "+d.getMobNo());
+		return rs;
+
+	}
+
+/// booking history for driver and customer
+	public ResponseStructure<BookingHistoryDTO> getBookingHistory(List<Booking> blist) {
+		List<RideDetailsDTO> list = new ArrayList<RideDetailsDTO>();
+		double totalAmount = 0;
+		for (Booking b : blist) {
+			if (b.getBookingStatus() != BookingStatus.COMPLETED) {
+				continue;
+			}
+
+			RideDetailsDTO rdto = new RideDetailsDTO();
+			rdto.setBookingId(b.getId());
+			rdto.setSourceLocation(b.getSourceLocation());
+			rdto.setDestinationLocation(b.getDestinationLocation());
+			rdto.setBookingStatus(b.getBookingStatus().name());
+			rdto.setDistance(b.getDistance());
+			rdto.setFare(b.getFare());
+			totalAmount += b.getFare();
+			list.add(rdto);
+		}
+		BookingHistoryDTO bookingHistoryDTO = new BookingHistoryDTO();
+		bookingHistoryDTO.setRlist(list);
+		bookingHistoryDTO.setTotalAmt(totalAmount);
+
+		ResponseStructure<BookingHistoryDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Booking History");
+		rs.setData(bookingHistoryDTO);
 
 		return rs;
 
 	}
-/// booking history for driver and customer
-	public ResponseStructure<BookingHistoryDTO> getBookingHistory(List<Booking> blist){
-		List<RideDetailsDTO> list= new ArrayList<RideDetailsDTO>();
-        double totalAmount=0;
-        for(Booking b :blist) {
-        	if (b.getBookingStatus() != BookingStatus.COMPLETED) {
-        	    continue;
-        	}
 
+	// active booking for driver and customer
 
-       	 RideDetailsDTO rdto= new RideDetailsDTO();
-       	 rdto.setBookingId(b.getId());
-       	 rdto.setSourceLocation(b.getSourceLocation());
-       	 rdto.setDestinationLocation(b.getDestinationLocation());
-       	rdto.setBookingStatus(b.getBookingStatus().name());
-       	 rdto.setDistance(b.getDistance());
-       	 rdto.setFare(b.getFare());
-       	 totalAmount+=b.getFare();
-       	 list.add(rdto);
-        }
-        BookingHistoryDTO bookingHistoryDTO= new BookingHistoryDTO();
-        bookingHistoryDTO.setRlist(list);
-        bookingHistoryDTO.setTotalAmt(totalAmount);
-        
-        ResponseStructure<BookingHistoryDTO> rs = new ResponseStructure<>();
-	        rs.setStatusCode(HttpStatus.OK.value());
-	        rs.setMessage("Booking History");
-	        rs.setData(bookingHistoryDTO);
+	public ResponseStructure<RideDetailsDTO> activeBookingHistory(List<Booking> blist) {
 
-	        return rs;
-			
+		RideDetailsDTO rdto = new RideDetailsDTO();
+		for (Booking b : blist) {
+			if (b.isActiveBookingFlag() == true) {
+
+				rdto.setBookingId(b.getId());
+				rdto.setSourceLocation(b.getSourceLocation());
+				rdto.setDestinationLocation(b.getDestinationLocation());
+				rdto.setDistance(b.getDistance());
+				rdto.setBookingStatus(b.getBookingStatus().name());
+
+				rdto.setFare(b.getFare());
+
+				ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
+				rs.setStatusCode(HttpStatus.OK.value());
+				rs.setMessage("Ongoing- not completed yet");
+				rs.setData(rdto);
+
+				return rs;
+
+			}
+		}
+		ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("No active booking");
+		rs.setData(rdto);
+
+		return rs;
+
 	}
-	 
-	
-	//active booking for driver and customer
-	
-	
-	public ResponseStructure<RideDetailsDTO> activeBookingHistory(List<Booking> blist){
-		
-		 
-		 RideDetailsDTO rdto= new RideDetailsDTO();
-		  for(Booking b: blist) {
-			  if(b.isActiveBookingFlag()==true) {
-				  
-				  rdto.setBookingId(b.getId());
-				  rdto.setSourceLocation(b.getSourceLocation());
-				  rdto.setDestinationLocation(b.getDestinationLocation());
-				  rdto.setDistance(b.getDistance());
-				  rdto.setBookingStatus(b.getBookingStatus().name());
 
-				  rdto.setFare(b.getFare());
-				  
-				  ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
-					rs.setStatusCode(HttpStatus.OK.value());
-					rs.setMessage("Ongoing- not completed yet");
-					rs.setData(rdto);
+	// Booking Cancel by Driver
 
-					return rs;
-						  
-			  }
-		  }
-		  ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
-			rs.setStatusCode(HttpStatus.OK.value());
-			rs.setMessage("No active booking");
-			rs.setData(rdto);
-
-			return rs;
-		 
-		
-	}
-	
-	
-	// Booking Cancel by Driver 
-	
 	public ResponseStructure<String> cancelBookingByDriver(int bookingId) {
 
-	    Booking booking = bookingRepo.findById(bookingId)
-	            .orElseThrow(() -> new RuntimeException("Booking not found"));
+		Booking booking = bookingRepo.findById(bookingId).orElseThrow(() -> new RuntimeException("Booking not found"));
 
-	    Driver driver = booking.getVehicle().getDriver();
-	    Customer customer = booking.getCustomer();
+		Driver driver = booking.getVehicle().getDriver();
+		Customer customer = booking.getCustomer();
 
-	    // Count how many times driver cancelled
-	    List<Booking> cancelledList =
-	            bookingRepo.findByVehicleDriverAndBookingStatus(
-	                    driver,
-	                    BookingStatus.CANCELLED_BY_DRIVER
-	            );
+		// Count how many times driver cancelled
+		List<Booking> cancelledList = bookingRepo.findByVehicleDriverAndBookingStatus(driver,
+				BookingStatus.CANCELLED_BY_DRIVER);
 
-	    int cancelCount = cancelledList.size();
+		int cancelCount = cancelledList.size();
 
-	    // Cancel booking
-	    booking.setBookingStatus(BookingStatus.CANCELLED_BY_DRIVER);
-	    booking.setActiveBookingFlag(false);
+		// Cancel booking
+		booking.setBookingStatus(BookingStatus.CANCELLED_BY_DRIVER);
+		booking.setActiveBookingFlag(false);
 
-	    // Reset customer active booking
-	    customer.setActiveBookingFlag(false);
+		// Reset customer active booking
+		customer.setActiveBookingFlag(false);
 
-	    // Block driver if more than 4 cancels
-	    if (cancelCount >= 4) {
-	        driver.setDstatus("BLOCKED");
-	    }
+		// Block driver if more than 4 cancels
+		if (cancelCount >= 4) {
+			driver.setDstatus("BLOCKED");
+		}
 
-	    bookingRepo.save(booking);
-	    dr.save(driver);
-	    customerRepo.save(customer);
+		bookingRepo.save(booking);
+		dr.save(driver);
+		customerRepo.save(customer);
 
-	    ResponseStructure<String> rs = new ResponseStructure<>();
-	    rs.setStatusCode(HttpStatus.OK.value());
-	    rs.setMessage("Booking cancelled by driver");
-	    rs.setData(null);
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Booking cancelled by driver");
+		rs.setData(null);
 
-	    return rs;
+		return rs;
 	}
-
-
-	 
-
 
 }
