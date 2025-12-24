@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -51,6 +52,8 @@ public class DriverService {
 	private RestTemplate restTemplate;
 	@Autowired
 	private UserrRepo userrRepo;
+	@Autowired
+	private PasswordEncoder passwordEncoder;
 
 	@Value("${locationiq.api.key}")
 	private String apiKey;
@@ -102,14 +105,15 @@ public class DriverService {
 
 		Userr userr = new Userr();
 		userr.setMobno(driver.getMobNo());
-		userr.setPassword(driver.getPassword());
+		userr.setPassword(passwordEncoder.encode(driver.getPassword()));
 		userr.setRole("DRIVER");
-		
+
 		userrRepo.save(userr);
+		driver.setPassword(userr.getPassword());
 		driver.setUserr(userr);
 		// 🔹 SAVE (ONLY ONCE)
 		Driver savedDriver = driverRepo.save(driver);
-		
+
 		ResponseStructure<Driver> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.CREATED.value());
 		rs.setMessage("Driver Saved Successfully");
