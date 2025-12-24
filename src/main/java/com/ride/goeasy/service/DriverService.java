@@ -17,6 +17,7 @@ import com.ride.goeasy.entity.Booking;
 import com.ride.goeasy.entity.Customer;
 import com.ride.goeasy.entity.Driver;
 import com.ride.goeasy.entity.Payment;
+import com.ride.goeasy.entity.Userr;
 import com.ride.goeasy.entity.Vehicle;
 import com.ride.goeasy.enums.BookingStatus;
 import com.ride.goeasy.exception.BookingNotFoundException;
@@ -25,6 +26,7 @@ import com.ride.goeasy.repository.BookingRepo;
 import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.repository.DriverRepo;
 import com.ride.goeasy.repository.PaymentRepo;
+import com.ride.goeasy.repository.UserrRepo;
 import com.ride.goeasy.repository.VehicleRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
@@ -47,6 +49,8 @@ public class DriverService {
 
 	@Autowired
 	private RestTemplate restTemplate;
+	@Autowired
+	private UserrRepo userrRepo;
 
 	@Value("${locationiq.api.key}")
 	private String apiKey;
@@ -96,9 +100,16 @@ public class DriverService {
 		vehicle.setDriver(driver);
 		driver.setVehicle(vehicle);
 
+		Userr userr = new Userr();
+		userr.setMobno(driver.getMobNo());
+		userr.setPassword(driver.getPassword());
+		userr.setRole("DRIVER");
+		
+		userrRepo.save(userr);
+		driver.setUserr(userr);
 		// 🔹 SAVE (ONLY ONCE)
 		Driver savedDriver = driverRepo.save(driver);
-
+		
 		ResponseStructure<Driver> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.CREATED.value());
 		rs.setMessage("Driver Saved Successfully");
@@ -263,12 +274,10 @@ public class DriverService {
 		Driver d = v.getDriver();
 		Customer c = b.getCustomer();
 
- 
-	    c.setActiveBookingFlag(false);
-	    c.setCancellationCount(0);
+		c.setActiveBookingFlag(false);
+		c.setCancellationCount(0);
 
 		double fare = b.getFare();
-
 
 		// 🔹 Create UPI intent
 		String upiString = "upi://pay?pa=" + d.getUpiId() + "&pn=" + d.getDname() + "&am=" + fare + "&cu=INR";

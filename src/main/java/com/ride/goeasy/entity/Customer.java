@@ -11,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 
 @Entity
 public class Customer {
@@ -22,15 +23,18 @@ public class Customer {
 	private String name;
 	private int age;
 	private String gender;
+	private String password;
 
 	@Column(unique = true)
 	private Long mobno;
 
 	private String email;
-
+    
 	// store as string "lat,lon"
 	private String currentLocation;
-
+	//one customer-->one userr
+	@OneToOne
+	private Userr userr;
 	// One Customer -> Many Bookings
 	@OneToMany
 	 
@@ -63,10 +67,49 @@ public class Customer {
 
 	public Customer() {
 	}
+	
+	
+
+	public Customer(String name, int age, String gender, String password, Long mobno, String email,
+			String currentLocation, Userr userr, List<Booking> bookings, boolean activeBookingFlag,
+			int cancellationCount) {
+		super();
+		this.name = name;
+		this.age = age;
+		this.gender = gender;
+		this.password = password;
+		this.mobno = mobno;
+		this.email = email;
+		this.currentLocation = currentLocation;
+		this.userr = userr;
+		this.bookings = bookings;
+		this.activeBookingFlag = activeBookingFlag;
+		this.cancellationCount = cancellationCount;
+	}
 
 	// getters & setters
+	
+	
+	
+	
 	public int getId() {
 		return id;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public Userr getUserr() {
+		return userr;
+	}
+
+	public void setUserr(Userr userr) {
+		this.userr = userr;
 	}
 
 	public void setId(int id) {

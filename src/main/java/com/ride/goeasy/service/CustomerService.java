@@ -13,6 +13,7 @@ import com.ride.goeasy.entity.Booking;
 import com.ride.goeasy.entity.Customer;
 import com.ride.goeasy.entity.Driver;
 import com.ride.goeasy.entity.Payment;
+import com.ride.goeasy.entity.Userr;
 import com.ride.goeasy.entity.Vehicle;
 import com.ride.goeasy.enums.BookingStatus;
 import com.ride.goeasy.exception.BookingNotFoundException;
@@ -21,6 +22,7 @@ import com.ride.goeasy.repository.BookingRepo;
 import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.repository.DriverRepo;
 import com.ride.goeasy.repository.PaymentRepo;
+import com.ride.goeasy.repository.UserrRepo;
 import com.ride.goeasy.repository.VehicleRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
@@ -39,6 +41,9 @@ public class CustomerService {
 	   @Autowired
 	   private VehicleRepo vehicleRepo;
 	   
+	   @Autowired
+	   private UserrRepo userrRepo;
+	   
    @Autowired
      PaymentRepo pr;
 	   @Autowired
@@ -55,7 +60,16 @@ public class CustomerService {
 	        c.setMobno(dto.getMobno());
 	        c.setEmail(dto.getEmail());
 	        c.setCurrentLocation(dto.getLat() + "," + dto.getLon());
-
+	       
+	        Userr userr = new Userr();
+			userr.setMobno(c.getMobno());
+			userr.setPassword(c.getPassword());
+			userr.setRole("CUSTOMER");
+			
+			userrRepo.save(userr);
+			c.setUserr(userr);
+			// 🔹 SAVE (ONLY ONCE)
+			Customer saveCustomer = customerRepo.save(c);
 	        Customer saved = customerRepo.save(c);
 
 	        // Convert Entity → ResponseDTO

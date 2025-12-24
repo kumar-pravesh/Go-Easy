@@ -26,7 +26,11 @@ public class Driver {
     private Long mobNo;
     private String gender;
     private String mailId;
-    
+    private String password;
+   
+
+	@OneToOne
+    private Userr userr;
     
 
     @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL)
@@ -49,19 +53,26 @@ public class Driver {
 	public Driver() {
     }
 
-    public Driver(String dname, String licNo, String upiId, String dstatus, Integer age, Long mobNo, String gender, String mailId, Vehicle vehicle) {
-        this.dname = dname;
-        this.licNo = licNo;
-        this.upiId = upiId;
-        this.dstatus = dstatus;
-        this.age = age;
-        this.mobNo = mobNo;
-        this.gender = gender;
-        this.mailId = mailId;
-        setVehicle(vehicle);
-    }
+  
 
-    public Integer getId() {
+    public Driver(String dname, String licNo, String upiId, String dstatus, Integer age, Long mobNo, String gender,
+			String mailId, String password, Userr userr, Vehicle vehicle, List<Booking> dblist) {
+		super();
+		this.dname = dname;
+		this.licNo = licNo;
+		this.upiId = upiId;
+		this.dstatus = dstatus;
+		this.age = age;
+		this.mobNo = mobNo;
+		this.gender = gender;
+		this.mailId = mailId;
+		this.password = password;
+		this.userr = userr;
+		this.vehicle = vehicle;
+		this.dblist = dblist;
+	}
+
+	public Integer getId() {
         return id;
     }
 
@@ -139,6 +150,21 @@ public class Driver {
         this.vehicle = vehicle;
         vehicle.setDriver(this);   
     }
+    public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public Userr getUserr() {
+		return userr;
+	}
+
+	public void setUserr(Userr userr) {
+		this.userr = userr;
+	}
 
     @Override
     public String toString() {
