@@ -34,6 +34,7 @@ public class Customer {
 	private String currentLocation;
 	//one customer-->one userr
 	@OneToOne
+	@JsonIgnore
 	private Userr userr;
 	// One Customer -> Many Bookings
 	@OneToMany

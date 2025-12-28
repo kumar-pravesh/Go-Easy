@@ -3,10 +3,11 @@ package com.ride.goeasy.security;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,47 +16,64 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 @EnableWebSecurity
 public class SecurityConfig {
 
-	private final JwtFilter jwtFilter;
+	
 
-	public SecurityConfig(JwtFilter jwtFilter) {
-		this.jwtFilter = jwtFilter;
-	}
+	@Autowired
+    private JwtFilter jwtFilter;
+	
+	@Autowired
+	private CustomUserDetailsService userDetailsService;
 
-	// 🔐 Password Encoder Bean
-	@Bean
-	public PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
-	}
+	@Autowired
+    private PasswordEncoder passwordEncoder;
 
+
+
+	    public SecurityConfig(JwtFilter jwtFilter) {
+	        this.jwtFilter = jwtFilter;
+	    }
+	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	    http
+	        .csrf(csrf -> csrf.disable()) 
+	        .cors(cors -> cors.disable()) 
+	        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+	        .authorizeHttpRequests(auth -> auth
+	        	    // 🔓 PUBLIC
+	                .requestMatchers(
+	                    "/auth/**",
+	                    "/customer/register/**",
+	                    "/registercustomerwithpwd",
+	                    "/newtoken",
+	                    "/driver/save",
+	                    "/driver/generateUpiQr/**"
+	                ).permitAll()
 
-		http
-				// Disable CSRF for REST APIs
-				.csrf(csrf -> csrf.disable())
+	                // 👤 CUSTOMER
+	                .requestMatchers(
+	                    "/customer/**",
+	                    "/booking/**"
+	                ).hasRole("CUSTOMER")
 
-				// State less session (JWT / REST)
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+	                // 🚖 DRIVER
+	                .requestMatchers("/driver/**")
+	                .hasRole("DRIVER")
 
-				// Authorization rules
-				.authorizeHttpRequests(auth -> auth
-						// permit login
-						.requestMatchers("/auth/**").permitAll()
+	                // 🔐 DEFAULT
+	                .anyRequest().authenticated()
+	            )
+	       
+	        .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-						// Permit register API
-						.requestMatchers("/driver/**").hasRole("DRIVER")
-
-						.requestMatchers("/customer/**").hasRole("CUSTOMER")
-
-						// Any other request must be authenticated
-						.anyRequest().authenticated());
-//	            .addFilterBefore(jwtfilter,UsernamePasswordAuthenticationfilter.class)
-
-		return http.build();
+	    return http.build();
 	}
 
 	@Bean
 	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
 		return config.getAuthenticationManager();
 	}
+	
+	
+	
 }

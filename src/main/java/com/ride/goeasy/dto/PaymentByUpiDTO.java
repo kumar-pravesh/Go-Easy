@@ -11,7 +11,7 @@ public class PaymentByUpiDTO {
     private String paymentType;
     private String paymentStatus;
 
-    private byte[] qr;
+    private String qr;
 
 	public int getBookingId() {
 		return bookingId;
@@ -61,13 +61,15 @@ public class PaymentByUpiDTO {
 		this.paymentStatus = paymentStatus;
 	}
 
-	public byte[] getQr() {
+	public String getQr() {
 		return qr;
 	}
 
-	public void setQr(byte[] qr) {
+	public void setQr(String qr) {
 		this.qr = qr;
 	}
+
+	
     
     
 }

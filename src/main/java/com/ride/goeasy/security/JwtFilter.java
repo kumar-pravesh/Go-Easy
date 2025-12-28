@@ -18,46 +18,58 @@ import java.util.Collections;
 @Component
 public class JwtFilter extends OncePerRequestFilter {
 
-	@Autowired
-	private JwtUtils jwtUtils;
+    @Autowired
+    private JwtUtils jwtUtils;
 
-	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-			throws ServletException, IOException {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
-		if (request.getServletPath().startsWith("/auth")) {
-			filterChain.doFilter(request, response);
-			return;
-		}
+        // Allow /auth/** without JWT
+    	String path = request.getServletPath();
 
-		String authHeader = request.getHeader("Authorization");
-		String token = null;
-		String username = null;
+        if (path.startsWith("/auth") || path.startsWith("/customer/register")) {
+            filterChain.doFilter(request, response);
+            return; 
+        }
 
-		if (authHeader != null && authHeader.startsWith("Bearer ")) {
-			token = authHeader.substring(7);
-			try {
-				username = jwtUtils.extractUsername(token);
-			} catch (Exception e) {
-				System.out.println("Invalid JWT: " + e.getMessage());
-			}
-		}
+        String authHeader = request.getHeader("Authorization");
+        String token = null;
+        String username = null;
 
-		// Validate token and set authentication context
-		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			String role = jwtUtils.extractRole(token); // ✅ Extract role claim (ADMIN/USER)
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+            try {
+                username = jwtUtils.extractUsername(token);
+            } catch (Exception e) {
+                System.out.println("Invalid JWT: " + e.getMessage());
+            }
+        }
 
-			if (jwtUtils.isTokenValid(token, username)) {
-				var authorities = Collections.singleton(new SimpleGrantedAuthority("ROLE_" + role));
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            String role = null;
+            try {
+                role = jwtUtils.extractRole(token);
+            } catch (Exception e) {
+                System.out.println("Cannot extract role: " + e.getMessage());
+            }
 
-				UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(username, null,
-						authorities);
-				authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            if (role != null && jwtUtils.isTokenValid(token, username)) {
+             
+                System.out.println("Extracted Role from Token: " + role); 
 
-				SecurityContextHolder.getContext().setAuthentication(authToken);
-			}
-		}
+                // Authorities list
+                var authorities = Collections.singleton(new SimpleGrantedAuthority(role));
+                
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(username, null, authorities);
+                
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+            
+        }
 
-		filterChain.doFilter(request, response);
-	}
+        filterChain.doFilter(request, response);
+    }
 }

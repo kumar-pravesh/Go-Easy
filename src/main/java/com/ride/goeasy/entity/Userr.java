@@ -26,11 +26,11 @@ public class Userr {
 	}
 
 	public long getMobNo() {
-		return mobNo;
+	    return mobNo; 
 	}
 
 	public void setMobno(long mobNo) {
-		this.mobNo = mobNo;
+	    this.mobNo = mobNo; 
 	}
 
 	public String getPassword() {
@@ -60,9 +60,6 @@ public class Userr {
 		super();
 	}
 
-	@Override
-	public String toString() {
-		return "Userr [id=" + id + ", mobNo=" + mobNo + ", password=" + password + ", role=" + role + "]";
-	}
+
 
 }

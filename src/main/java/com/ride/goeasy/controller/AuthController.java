@@ -40,9 +40,9 @@ public class AuthController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         String token = jwtUtils.generateToken(
-                String.valueOf(user.getMobNo()),
-                user.getRole()
-        );
+        	    String.valueOf(user.getMobNo()),
+        	    "ROLE_" + user.getRole()  // must include ROLE_ prefix
+        	);
 
         ResponseStructure<String> rs = new ResponseStructure<>();
         rs.setStatusCode(200);

@@ -33,7 +33,7 @@ public class DriverController {
 
 	// to perform save operation
 
-	@PostMapping("/register")
+	@PostMapping("/save")
 	public ResponseStructure<Driver> saveDriverWithVehicle(@RequestBody Driver driver) {
 		return driverService.saveDriverWithVehicle(driver);
 	}
