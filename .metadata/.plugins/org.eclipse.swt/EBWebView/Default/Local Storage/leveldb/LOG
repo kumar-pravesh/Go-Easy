@@ -1,3 +1,2 @@
-2025/12/22-10:28:08.982 4508 Reusing MANIFEST C:\Users\Kotte\Documents\Go-Easy\.metadata\.plugins\org.eclipse.swt\EBWebView\Default\Local Storage\leveldb/MANIFEST-000001
-2025/12/22-10:28:08.995 4508 Recovering log #3
-2025/12/22-10:28:08.999 4508 Reusing old log C:\Users\Kotte\Documents\Go-Easy\.metadata\.plugins\org.eclipse.swt\EBWebView\Default\Local Storage\leveldb/000003.log 
+2026/01/01-22:44:27.886 36b0 Creating DB C:\Users\kuchu\Documents\Go\Go-Easy\.metadata\.plugins\org.eclipse.swt\EBWebView\Default\Local Storage\leveldb since it was missing.
+2026/01/01-22:44:27.914 36b0 Reusing MANIFEST C:\Users\kuchu\Documents\Go\Go-Easy\.metadata\.plugins\org.eclipse.swt\EBWebView\Default\Local Storage\leveldb/MANIFEST-000001

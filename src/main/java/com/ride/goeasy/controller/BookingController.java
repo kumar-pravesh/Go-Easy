@@ -27,6 +27,27 @@ public class BookingController {
 		  
 		  
 	  }
+	  @PostMapping("/startRide")
+	  public ResponseStructure<String> startRide(
+	          @RequestParam int bookingId,
+	          @RequestParam String otp) {
+
+	      return bookingService.startRide(bookingId, otp);
+	  }
+	  @PostMapping("/generateEndOtp")
+	  public ResponseStructure<String> generateEndOtp(
+	          @RequestParam int bookingId) {
+
+	      return bookingService.generateEndOtp(bookingId);
+	  }
+	  @PostMapping("/completeRide")
+	  public ResponseStructure<String> completeRide(
+	          @RequestParam int bookingId,
+	          @RequestParam String otp) {
+
+	      return bookingService.completeRide(bookingId, otp);
+	  }
+
 	  
 	 
  
