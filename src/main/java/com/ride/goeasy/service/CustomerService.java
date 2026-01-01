@@ -1,5 +1,6 @@
 package com.ride.goeasy.service;
- import java.util.List;
+
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -29,202 +30,220 @@ import com.ride.goeasy.response.ResponseStructure;
 
 @Service
 public class CustomerService {
+
+	@Autowired
+	private CustomerRepo customerRepo;
+
+	@Autowired
+	private BookingRepo bookingRepo;
+
+	@Autowired
+	private DriverRepo driverRepo;
+
+	@Autowired
+	private VehicleRepo vehicleRepo;
+
+	@Autowired
+	private UserrRepo userrRepo;
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private MailService mailService;
+
+	@Autowired
+	PaymentRepo pr;
+	@Autowired
+	BookingService bs;
+	@Autowired
+	BookingRepo br;
 	
-	   @Autowired
-	    private CustomerRepo customerRepo;
-	   
-	   @Autowired
-	   private BookingRepo bookingRepo;
-	   
-	   @Autowired
-	   private DriverRepo driverRepo;
-	   
-	   @Autowired
-	   private VehicleRepo vehicleRepo;
-	   
-	   @Autowired
-	   private UserrRepo userrRepo;
-	   @Autowired
-		private PasswordEncoder passwordEncoder;
-	   
-   @Autowired
-     PaymentRepo pr;
-	   @Autowired
-	   BookingService bs;
-    @Autowired
-        BookingRepo br;
-	    // SAVE CUSTOMER
-	    public ResponseStructure<CustomerResponseDTO> saveCustomer(CustomerDTO dto) {
+	
+	
+	// SAVE CUSTOMER
 
-	        Customer c = new Customer();
-	        c.setName(dto.getName());
-	        c.setAge(dto.getAge());
-	        c.setGender(dto.getGender());
-	        c.setMobno(dto.getMobno());
-	        c.setEmail(dto.getEmail());
-	        c.setPassword(dto.getPassword());
-	        c.setCurrentLocation(dto.getLat() + "," + dto.getLon());
-	       
-	        Userr userr = new Userr();
-			userr.setMobno(c.getMobno());
-			userr.setPassword(passwordEncoder.encode(dto.getPassword())); 
+	public ResponseStructure<CustomerResponseDTO> saveCustomer(CustomerDTO dto) {
+
+		Customer c = new Customer();
+		c.setName(dto.getName());
+		c.setAge(dto.getAge());
+		c.setGender(dto.getGender());
+		c.setMobno(dto.getMobno());
+		c.setEmail(dto.getEmail());
+		c.setPassword(dto.getPassword());
+		c.setCurrentLocation(dto.getLat() + "," + dto.getLon());
+
+		Userr userr = new Userr();
+		userr.setMobno(c.getMobno());
+		userr.setPassword(passwordEncoder.encode(dto.getPassword()));
+
+		userr.setRole("CUSTOMER");
+
+		userrRepo.save(userr);
+		c.setUserr(userr);
+		c.setPassword(userr.getPassword());
+		// 🔹 SAVE (ONLY ONCE)
+
+		Customer saved = customerRepo.save(c);
 		
-			userr.setRole("CUSTOMER");
-			
-			userrRepo.save(userr);
-			c.setUserr(userr);
-			c.setPassword(userr.getPassword());
-			// 🔹 SAVE (ONLY ONCE)
 		
-	        Customer saved = customerRepo.save(c);
+		//  CUSTOMER REGISTRATION MAIL
+		mailService.sendCustomerRegistrationMail(
+		    saved.getEmail(),
+		    saved.getName()
+		);
 
-	        // Convert Entity → ResponseDTO
-	        CustomerResponseDTO res = convertToResponse(saved);
 
-	        ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
-	        rs.setStatusCode(HttpStatus.CREATED.value());
-	        rs.setMessage("Customer Registered Successfully");
-	        rs.setData(res);
+		// Convert Entity → ResponseDTO
+		CustomerResponseDTO res = convertToResponse(saved);
 
-	        return rs;
-	    }
+		ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.CREATED.value());
+		rs.setMessage("Customer Registered Successfully");
+		rs.setData(res);
 
-	    // FIND CUSTOMER BY MOBILE
-	    public ResponseStructure<CustomerResponseDTO> findCustomer(Long mobno) {
+		return rs;
+	}
 
-	        Customer c = customerRepo.findByMobno(mobno)
-	                .orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
+	// FIND CUSTOMER BY MOBILE
+	public ResponseStructure<CustomerResponseDTO> findCustomer(Long mobno) {
 
-	        CustomerResponseDTO res = convertToResponse(c);
+		Customer c = customerRepo.findByMobno(mobno)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
 
-	        ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
-	        rs.setStatusCode(HttpStatus.OK.value());
-	        rs.setMessage("Customer Found");
-	        rs.setData(res);
+		CustomerResponseDTO res = convertToResponse(c);
 
-	        return rs;
-	    }
+		ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Customer Found");
+		rs.setData(res);
 
-	    // DELETE CUSTOMER
-	    public ResponseStructure<CustomerResponseDTO> deleteCustomer(Long mobno) {
+		return rs;
+	}
 
-	        Customer c = customerRepo.findByMobno(mobno)
-	                .orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
+	// DELETE CUSTOMER
+	public ResponseStructure<CustomerResponseDTO> deleteCustomer(Long mobno) {
 
-	        customerRepo.delete(c);
+		Customer c = customerRepo.findByMobno(mobno)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
 
-	        CustomerResponseDTO res = convertToResponse(c);
+		customerRepo.delete(c);
 
-	        ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
-	        rs.setStatusCode(HttpStatus.OK.value());
-	        rs.setMessage("Customer Deleted Successfully");
-	        rs.setData(res);
+		CustomerResponseDTO res = convertToResponse(c);
 
-	        return rs;
-	    }
+		ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Customer Deleted Successfully");
+		rs.setData(res);
 
-	    // UPDATE CUSTOMER
-	    public ResponseStructure<CustomerResponseDTO> updateCustomer(Long mobno, CustomerDTO dto) {
+		return rs;
+	}
 
-	        Customer c = customerRepo.findByMobno(mobno)
-	                .orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
+	// UPDATE CUSTOMER
+	public ResponseStructure<CustomerResponseDTO> updateCustomer(Long mobno, CustomerDTO dto) {
 
-	        c.setName(dto.getName());
-	        c.setAge(dto.getAge());
-	        c.setGender(dto.getGender());
-	        c.setEmail(dto.getEmail());
-	        c.setMobno(dto.getMobno());
-	        c.setCurrentLocation(dto.getLat() + "," + dto.getLon());
+		Customer c = customerRepo.findByMobno(mobno)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
 
-	        Customer updated = customerRepo.save(c);
+		c.setName(dto.getName());
+		c.setAge(dto.getAge());
+		c.setGender(dto.getGender());
+		c.setEmail(dto.getEmail());
+		c.setMobno(dto.getMobno());
+		c.setCurrentLocation(dto.getLat() + "," + dto.getLon());
 
-	        CustomerResponseDTO res = convertToResponse(updated);
+		Customer updated = customerRepo.save(c);
 
-	        ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
-	        rs.setStatusCode(HttpStatus.OK.value());
-	        rs.setMessage("Customer Updated Successfully");
-	        rs.setData(res);
+		CustomerResponseDTO res = convertToResponse(updated);
 
-	        return rs;
-	    }
-	    
-	    
-	    
-	    private CustomerResponseDTO convertToResponse(Customer c) {
+		ResponseStructure<CustomerResponseDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Customer Updated Successfully");
+		rs.setData(res);
 
-	        CustomerResponseDTO res = new CustomerResponseDTO();
-	        res.setId(c.getId());
-	        res.setName(c.getName());
-	        res.setAge(c.getAge());
-	        res.setGender(c.getGender());
-	        res.setMobno(c.getMobno());
-	        res.setEmail(c.getEmail());
-	        res.setCurrentLocation(c.getCurrentLocation());
-	      
+		return rs;
+	}
 
-	        return res;
-	    }
+	private CustomerResponseDTO convertToResponse(Customer c) {
 
-		public ResponseStructure<BookingHistoryDTO> getDriverBookingHistory(long mobno) {
-		
-			Customer c=	customerRepo.findByMobno(mobno).orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
-	        List<Booking> blist= c.getBookings();
-	     return   bs.getBookingHistory(blist);
-			 
-		}
+		CustomerResponseDTO res = new CustomerResponseDTO();
+		res.setId(c.getId());
+		res.setName(c.getName());
+		res.setAge(c.getAge());
+		res.setGender(c.getGender());
+		res.setMobno(c.getMobno());
+		res.setEmail(c.getEmail());
+		res.setCurrentLocation(c.getCurrentLocation());
 
-		public ResponseStructure<RideDetailsDTO> getDriverActiveBooking(long mobNo) {
-			Customer c=	customerRepo.findByMobno(mobNo).orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobNo));
-	        List<Booking> blist= c.getBookings();
-		return	 bs.activeBookingHistory(blist);
-		}
+		return res;
+	}
 
-		
+	public ResponseStructure<BookingHistoryDTO> getDriverBookingHistory(long mobno) {
+
+		Customer c = customerRepo.findByMobno(mobno)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobno));
+		List<Booking> blist = c.getBookings();
+		return bs.getBookingHistory(blist);
+
+	}
+
+	public ResponseStructure<RideDetailsDTO> getDriverActiveBooking(long mobNo) {
+		Customer c = customerRepo.findByMobno(mobNo)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobNo));
+		List<Booking> blist = c.getBookings();
+		return bs.activeBookingHistory(blist);
+	}
+
 //		cancel ride by customer
-		public ResponseStructure<String> cancellRide(int bookingId) {
-			 
-			 Booking b= br.findById(bookingId).orElseThrow(() -> new BookingNotFoundException("No any booking with given id:"+ bookingId));
-			 Customer c= b.getCustomer();
-			 Vehicle v=b.getVehicle();
-			 Driver d=v.getDriver();
-					 c.setActiveBookingFlag(false);
-					 b.setActiveBookingFlag(false);
-					 b.setBookingStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
-					 d.setDstatus("AVAILABLE");
-				Payment p= b.getPayment();	
-					
-					 int count=c.getCancellationCount()+1;
-			   c.setCancellationCount(count);
-			   p.setPaymentStatus("Cancelled By customer");
-			   p.setAmount(0);
-			   p.setPaymentType("Ride cancelled");
-			   p.setCustomer(c);
-			   p.setBooking(b);
-			   p.setVehicle(v);
-			   
-			   pr.save(p);
-			   
-			   customerRepo.save(c);
-			   bookingRepo.save(b);
-			   driverRepo.save(d);
-			   vehicleRepo.save(v);
-			   
-			   
-					 
-			 ResponseStructure<String> rs= new ResponseStructure<String>();
-			  rs.setStatusCode(HttpStatus.OK.value());
-		        rs.setMessage("Booking Cencel Request Accepted");
-		        rs.setData("Booking cancelled by customer");
+	public ResponseStructure<String> cancellRide(int bookingId) {
 
-		 return rs;
-		}
+		Booking b = br.findById(bookingId)
+				.orElseThrow(() -> new BookingNotFoundException("No any booking with given id:" + bookingId));
+		Customer c = b.getCustomer();
+		Vehicle v = b.getVehicle();
+		Driver d = v.getDriver();
+		c.setActiveBookingFlag(false);
+		b.setActiveBookingFlag(false);
+		b.setBookingStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
+		
+//		cancellation mail
+		mailService.sendRideCancellationMail(
+			    c.getEmail(),
+			    String.valueOf(b.getId())
+			);
 
-		public String getCityFromCoordinates(double lat, double lon) {
-			// TODO Auto-generated method stub
-			return null;
-		}
- 
-		 
+		
+		
+		d.setDstatus("AVAILABLE");
+		Payment p = b.getPayment();
 
+		int count = c.getCancellationCount() + 1;
+		c.setCancellationCount(count);
+		p.setPaymentStatus("Cancelled By customer");
+		p.setAmount(0);
+		p.setPaymentType("Ride cancelled");
+		p.setCustomer(c);
+		p.setBooking(b);
+		p.setVehicle(v);
+
+		pr.save(p);
+
+		customerRepo.save(c);
+		bookingRepo.save(b);
+		driverRepo.save(d);
+		vehicleRepo.save(v);
+
+		ResponseStructure<String> rs = new ResponseStructure<String>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Booking Cencel Request Accepted");
+		rs.setData("Booking cancelled by customer");
+
+		return rs;
+	}
+
+	public String getCityFromCoordinates(double lat, double lon) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 }

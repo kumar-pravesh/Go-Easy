@@ -57,6 +57,10 @@ public class DriverService {
 	private UserrRepo userrRepo;
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+	
+	@Autowired
+	private MailService mailService;
+
 
 	@Value("${locationiq.api.key}")
 	private String apiKey;
@@ -116,6 +120,13 @@ public class DriverService {
 		driver.setUserr(userr);
 		// 🔹 SAVE (ONLY ONCE)
 		Driver savedDriver = driverRepo.save(driver);
+		
+		//  DRIVER REGISTRATION MAIL
+		mailService.sendDriverRegistrationMail(
+		    savedDriver.getMailId(),
+		    savedDriver.getDname()
+		);
+
 
 		ResponseStructure<Driver> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.CREATED.value());
@@ -244,6 +255,15 @@ public class DriverService {
 		pdto.setAmountPaid(b.getFare());
 		pdto.setPaymentType(paymentType);
 		pdto.setPaymentStatus("PAID");
+		
+		
+//		payment confirmation mail logic
+		mailService.sendPaymentConfirmationMail(
+			    c.getEmail(),
+			    b.getFare(),
+			    "CASH-" + b.getId()
+			);
+
 
 		ResponseStructure<PaymentByCashDTO> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());
@@ -364,6 +384,15 @@ public class DriverService {
 		dto.setAmount(b.getFare());
 		dto.setPaymentType("UPI");
 		dto.setPaymentStatus("PAID");
+		
+		
+//		mail
+		mailService.sendPaymentConfirmationMail(
+			    c.getEmail(),
+			    b.getFare(),
+			    "UPI-" + b.getId()
+			);
+
 
 		ResponseStructure<PaymentByUpiDTO> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());

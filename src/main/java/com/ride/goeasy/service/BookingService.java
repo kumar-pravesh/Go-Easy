@@ -48,8 +48,15 @@ public class BookingService {
 	private PaymentRepo paymentRepo;
 	@Value("${locationiq.api.key}")
 	private String apiKey;
+	
+	
 	@Autowired
 	private MailService mailService;
+	
+	
+	@Autowired
+	private OtpService otpService;
+
 
 	public ResponseStructure<Booking> bookVehicle(long mobno, BookingRequestDTO bookingRequestDTO) {
 
@@ -130,19 +137,46 @@ public class BookingService {
 		Driver d = vehicle.getDriver();
 
 		d.getDblist().add(b);
+		
+		
+		// ===== START OTP GENERATION =====
+		String startOtp = otpService.generateOtp();
+		b.setStartOtp(startOtp);
+		b.setStartOtpVerified(false);
+
+		// Send Start OTP to CUSTOMER
+		mailService.sendMail(
+		    cust.getEmail(),
+		    "Ride Start OTP - GoEasy",
+		    "Hello " + cust.getName() + ",\n\n"
+		  + "Your Ride Start OTP is: " + startOtp + "\n\n"
+		  + "Please share this OTP with the driver to start the ride.\n\n"
+		  + "– GoEasy Team"
+		);
+
 
 		// STEP 6: Save
 		Booking savedBooking = bookingRepo.save(b);
 		customerRepo.save(cust);
 		vr.save(vehicle);
 		dr.save(d);
+		
+		//  BOOKING CONFIRMATION MAIL 
+		mailService.sendBookingConfirmationMail(
+			    cust.getEmail(),
+			    cust.getName(),
+			    savedBooking.getId(),
+			    d.getDname(),
+			    d.getMobNo()
+			);
+
+
 
 		// STEP 7: Response
 		ResponseStructure<Booking> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.CREATED.value());
 		rs.setMessage(" Vehicle booked successfully");
 		rs.setData(savedBooking);
-		mailService.sendMail("kuchuruanudeepreddy@gmail.com", "BOOKING CONFIRMED FOR "+vehicle.getVehicleName(), "Your ride has been booked"+"\n driver name: "+d.getDname()+" \ndriver mob: "+d.getMobNo());
 		return rs;
 
 	}
@@ -243,6 +277,17 @@ public class BookingService {
 		bookingRepo.save(booking);
 		dr.save(driver);
 		customerRepo.save(customer);
+		
+		
+		// cancellation send mail
+		try {
+		    mailService.sendRideCancellationMail(
+		        customer.getEmail(),
+		        String.valueOf(booking.getId())
+		    );
+		} catch (Exception e) {
+		    System.out.println("Cancellation mail failed");
+		}
 
 		ResponseStructure<String> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());
@@ -251,5 +296,109 @@ public class BookingService {
 
 		return rs;
 	}
+	
+	
+//	start ride otp logic
+	public ResponseStructure<String> startRide(int bookingId, String otp) {
+
+	    Booking booking = bookingRepo.findById(bookingId)
+	        .orElseThrow(() -> new RuntimeException("Booking not found"));
+	    
+	    
+	    if (booking.getBookingStatus() != BookingStatus.BOOKED) {
+	        throw new RuntimeException("Ride cannot be started");
+	    }
+
+	    if (booking.getStartOtp() == null || !booking.getStartOtp().equals(otp)) {
+	        throw new RuntimeException("Invalid Start OTP");
+	    }
+
+	    booking.setStartOtpVerified(true);
+	    booking.setBookingStatus(BookingStatus.ONGOING);
+
+	    bookingRepo.save(booking);
+
+	    ResponseStructure<String> rs = new ResponseStructure<>();
+	    rs.setStatusCode(HttpStatus.OK.value());
+	    rs.setMessage("Ride started successfully");
+	    rs.setData(null);
+
+	    return rs;
+	}
+	
+	
+	// end ride with otp logic
+	public ResponseStructure<String> generateEndOtp(int bookingId) {
+
+	    Booking booking = bookingRepo.findById(bookingId)
+	        .orElseThrow(() -> new RuntimeException("Booking not found"));
+	    
+	    // Validate if ride is ongoing
+	    if (booking.getBookingStatus() != BookingStatus.ONGOING) {
+	        throw new RuntimeException("Ride cannot be ended now");
+	    }
+
+	    String endOtp = otpService.generateOtp();
+	    booking.setEndOtp(endOtp);
+	    booking.setEndOtpVerified(false);
+
+	    bookingRepo.save(booking);
+
+	    Customer cust = booking.getCustomer();
+
+	    mailService.sendMail(
+	        cust.getEmail(),
+	        "Ride Completion OTP - GoEasy",
+	        "Hello " + cust.getName() + ",\n\n"
+	      + "Your Ride Completion OTP is: " + endOtp + "\n\n"
+	      + "Please share this OTP with the driver to complete the ride.\n\n"
+	      + "– GoEasy Team"
+	    );
+
+	    ResponseStructure<String> rs = new ResponseStructure<>();
+	    rs.setStatusCode(HttpStatus.OK.value());
+	    rs.setMessage("Ride completion OTP sent to customer");
+	    rs.setData(null);
+
+	    return rs;
+	}
+
+	
+//	complete ride using otp
+	public ResponseStructure<String> completeRide(int bookingId, String otp) {
+
+	    Booking booking = bookingRepo.findById(bookingId)
+	        .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+	    // Validate if ride is ongoing
+	    if (booking.getBookingStatus() != BookingStatus.ONGOING) {
+	        throw new RuntimeException("Ride cannot be completed now");
+	    }
+
+	    // OTP validation
+	    if (booking.getEndOtp() == null || !booking.getEndOtp().equals(otp)) {
+	        throw new RuntimeException("Invalid Completion OTP");
+	    }
+
+	    booking.setEndOtpVerified(true);
+	    booking.setBookingStatus(BookingStatus.COMPLETED);
+	    booking.setActiveBookingFlag(false);
+
+	    // reset customer active booking
+	    Customer cust = booking.getCustomer();
+	    cust.setActiveBookingFlag(false);
+
+	    bookingRepo.save(booking);
+	    customerRepo.save(cust);
+
+	    ResponseStructure<String> rs = new ResponseStructure<>();
+	    rs.setStatusCode(HttpStatus.OK.value());
+	    rs.setMessage("Ride completed successfully");
+	    rs.setData(null);
+
+	    return rs;
+	}
+
+
 
 }
