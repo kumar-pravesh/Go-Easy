@@ -22,12 +22,11 @@ public class Booking {
 
 	// MANY BOOKINGS → ONE CUSTOMER
 	@ManyToOne
-
+	@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"bookings", "userr", "password"})
 	private Customer customer;
 
 	// MANY BOOKINGS → ONE Vehicle
 	@ManyToOne
-
 	private Vehicle vehicle;
 
 	private String sourceLocation;
@@ -49,7 +48,10 @@ public class Booking {
 	private boolean activeBookingFlag;
 
 	@OneToOne(cascade = CascadeType.ALL)
+	@com.fasterxml.jackson.annotation.JsonIgnore
 	private Payment payment;
+
+	private String paymentMode; // CASH or UPI
 	
 	
 
@@ -173,9 +175,17 @@ public class Booking {
 		this.payment = payment;
 	}
 
+	public String getPaymentMode() {
+		return paymentMode;
+	}
+
+	public void setPaymentMode(String paymentMode) {
+		this.paymentMode = paymentMode;
+	}
+
 	public Booking(int id, Customer customer, Vehicle vehicle, String sourceLocation, String destinationLocation,
 			Double distance, Double fare, String estimatedTime, BookingStatus bookingStatus, boolean activeBookingFlag,
-			Payment payment) {
+			Payment payment, String paymentMode) {
 		super();
 		this.id = id;
 		this.customer = customer;
@@ -188,6 +198,7 @@ public class Booking {
 		this.bookingStatus = bookingStatus;
 		this.activeBookingFlag = activeBookingFlag;
 		this.payment = payment;
+		this.paymentMode = paymentMode;
 	}
 
 	public Booking() {

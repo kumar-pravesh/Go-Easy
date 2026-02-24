@@ -12,13 +12,14 @@ public interface VehicleRepo extends JpaRepository<Vehicle, Integer> {
 	
 	
 	// Fetch all vehicles that are Available
-	@Query("SELECT v FROM Vehicle v WHERE v.avlStatus = 'Available'")
+	// Fetch all vehicles that are Available
+	@Query("SELECT v FROM Vehicle v WHERE v.avlStatus = 'AVAILABLE'")
 	List<Vehicle> findAvailableVehicles();
 	
 	
 
-	// Find by city
-	@Query("SELECT v FROM Vehicle v WHERE v.avlStatus = 'AVAILABLE' AND v.city = :city")
+	// Find by city (Case Insensitive)
+	@Query("SELECT v FROM Vehicle v WHERE v.avlStatus = 'AVAILABLE' AND LOWER(v.city) = LOWER(:city)")
 	List<Vehicle> findAvailableVehiclesInCity(String city);
 
 	

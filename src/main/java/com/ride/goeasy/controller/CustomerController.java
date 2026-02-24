@@ -3,6 +3,7 @@ package com.ride.goeasy.controller;
 
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,7 +57,7 @@ public class CustomerController {
 		}
 		
 		@GetMapping("/activeBooking")
-		public ResponseStructure<RideDetailsDTO> activeBooking(@RequestParam long mobNo) {
+		public ResponseStructure<com.ride.goeasy.entity.Booking> activeBooking(@RequestParam long mobNo) {
 		    return  customerService.getDriverActiveBooking(mobNo);
 		    
 		}
@@ -64,4 +65,14 @@ public class CustomerController {
 	    public ResponseStructure<String> cancellRide(@RequestParam int bookingId){
 	    	return customerService.cancellRide(bookingId);
 	    }
+
+	@GetMapping("/getCity")
+	public ResponseStructure<String> getCity(@RequestParam double lat, @RequestParam double lon) {
+		String city = customerService.getCityFromCoordinates(lat, lon);
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Current Location Fetched");
+		rs.setData(city);
+		return rs;
+	}
 }

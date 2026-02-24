@@ -67,7 +67,7 @@ public class DriverController {
 	
 
 	@GetMapping("/activeBooking")
-	public ResponseStructure<RideDetailsDTO> activeBooking(@RequestParam long mobNo) {
+	public ResponseStructure<com.ride.goeasy.entity.Booking> activeBooking(@RequestParam long mobNo) {
 	    return  driverService.getDriverActiveBooking(mobNo);
 	    
 	}
@@ -92,6 +92,11 @@ public class DriverController {
 	@PutMapping("/cancel/{bookingId}")
 	public ResponseStructure<String> driverCancel(@PathVariable int bookingId) {
 	    return bookingService.cancelBookingByDriver(bookingId);
+	}
+
+	@PutMapping("/status")
+	public ResponseStructure<String> updateStatus(@RequestParam long mobNo, @RequestParam String status) {
+		return driverService.updateDriverStatus(mobNo, status);
 	}
 
 }

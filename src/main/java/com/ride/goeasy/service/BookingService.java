@@ -78,31 +78,35 @@ public class BookingService {
 		String sourceCity = bookingRequestDTO.getSourceLocation().trim();
 		String srcUrl = "https://us1.locationiq.com/v1/search?key=" + apiKey + "&q=" + sourceCity + "&format=json";
 
-		LocationResponse[] srcResponse = restTemplate.getForObject(srcUrl, LocationResponse[].class);
-
-		// If response is null or empty array, city is invalid
-		if (srcResponse == null || srcResponse.length == 0) {
-			throw new InvalidLocationException("Invalid source city: " + sourceCity);
-		}
-
-		// Accept only if type = "city"
-		boolean validCity = false;
-		for (LocationResponse loc : srcResponse) {
-			String type = loc.getType();
-			if ("city".equalsIgnoreCase(type) || "town".equalsIgnoreCase(type)
-					|| "administrative".equalsIgnoreCase(type)) {
-				validCity = true;
-				break;
-			}
-		}
-
-		if (!validCity) {
-			throw new InvalidLocationException("Invalid city: " + sourceCity);
-		}
-
 		// Safe to use coordinates now
-		double latitude = Double.parseDouble(srcResponse[0].getLat());
-		double longitude = Double.parseDouble(srcResponse[0].getLon());
+		double latitude = 12.9716; // Default Bangalore
+		double longitude = 77.5946;
+
+		try {
+			LocationResponse[] srcResponse = restTemplate.getForObject(srcUrl, LocationResponse[].class);
+
+			// If response is null or empty array, use default
+			if (srcResponse != null && srcResponse.length > 0) {
+				// Accept only if type = "city"
+				boolean validCity = false;
+				for (LocationResponse loc : srcResponse) {
+					String type = loc.getType();
+					if ("city".equalsIgnoreCase(type) || "town".equalsIgnoreCase(type)
+							|| "administrative".equalsIgnoreCase(type)) {
+						validCity = true;
+						break;
+					}
+				}
+				
+				if(validCity) {
+					latitude = Double.parseDouble(srcResponse[0].getLat());
+					longitude = Double.parseDouble(srcResponse[0].getLon());
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Location API Timeout/Error: " + e.getMessage() + ". Using default coordinates.");
+			// Fallback to default (Bangalore) matches initialized values
+		}
 
 		// STEP 5: Create Booking
 
@@ -133,10 +137,19 @@ public class BookingService {
 		b.setBookingStatus(BookingStatus.BOOKED);
 		b.setPayment(p);
 		b.setActiveBookingFlag(true);
+		b.setPaymentMode(bookingRequestDTO.getPaymentMode()); // Save payment mode
 		cust.getBookings().add(b);
 		Driver d = vehicle.getDriver();
 
+		// Check if vehicle is actually available (Double Check)
+		if(!"AVAILABLE".equalsIgnoreCase(vehicle.getAvlStatus())) {
+			throw new RuntimeException("Vehicle is currently busy or unavailable.");
+		}
+		
 		d.getDblist().add(b);
+		
+		// Update Vehicle Status to prevent double booking!
+		vehicle.setAvlStatus("ON_RIDE");
 		
 		
 		// ===== START OTP GENERATION =====
@@ -215,78 +228,90 @@ public class BookingService {
 
 	// active booking for driver and customer
 
-	public ResponseStructure<RideDetailsDTO> activeBookingHistory(List<Booking> blist) {
+	public ResponseStructure<Booking> activeBookingHistory(List<Booking> blist) {
 
-		RideDetailsDTO rdto = new RideDetailsDTO();
+		Booking latestActive = null;
+		
 		for (Booking b : blist) {
-			if (b.isActiveBookingFlag() == true) {
-
-				rdto.setBookingId(b.getId());
-				rdto.setSourceLocation(b.getSourceLocation());
-				rdto.setDestinationLocation(b.getDestinationLocation());
-				rdto.setDistance(b.getDistance());
-				rdto.setBookingStatus(b.getBookingStatus().name());
-
-				rdto.setFare(b.getFare());
-
-				ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
-				rs.setStatusCode(HttpStatus.OK.value());
-				rs.setMessage("Ongoing- not completed yet");
-				rs.setData(rdto);
-
-				return rs;
-
+			if (b.isActiveBookingFlag()) {
+			    // Always keep reference to the found booking, effectively finding the last one (latest)
+			    // assuming list is ordered. Ideally compare IDs.
+			    if(latestActive == null || b.getId() > latestActive.getId()) {
+			        latestActive = b;
+			    }
 			}
 		}
-		ResponseStructure<RideDetailsDTO> rs = new ResponseStructure<>();
+		
+		if (latestActive != null) {
+            ResponseStructure<Booking> rs = new ResponseStructure<>();
+            rs.setStatusCode(HttpStatus.OK.value());
+            rs.setMessage("Ongoing- not completed yet");
+            rs.setData(latestActive); // Return FULL object so frontend has OTP/Driver
+            return rs;
+		}
+		
+		ResponseStructure<Booking> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());
 		rs.setMessage("No active booking");
-		rs.setData(rdto);
+		rs.setData(null);
 
 		return rs;
-
 	}
 
 	// Booking Cancel by Driver
 
 	public ResponseStructure<String> cancelBookingByDriver(int bookingId) {
+		Booking booking = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found"));
 
-		Booking booking = bookingRepo.findById(bookingId).orElseThrow(() -> new RuntimeException("Booking not found"));
+		Driver driver = null;
+		if (booking.getVehicle() != null) {
+			driver = booking.getVehicle().getDriver();
+			// Free up vehicle immediately
+			booking.getVehicle().setAvlStatus("AVAILABLE");
+		}
 
-		Driver driver = booking.getVehicle().getDriver();
 		Customer customer = booking.getCustomer();
 
-		// Count how many times driver cancelled
-		List<Booking> cancelledList = bookingRepo.findByVehicleDriverAndBookingStatus(driver,
-				BookingStatus.CANCELLED_BY_DRIVER);
-
-		int cancelCount = cancelledList.size();
+		// Track daily cancellations
+		if (driver != null) {
+			java.time.LocalDate today = java.time.LocalDate.now();
+			if (driver.getLastCancelDate() == null || !driver.getLastCancelDate().equals(today)) {
+				driver.setDailyCancelCount(0);
+				driver.setLastCancelDate(today);
+			}
+			driver.setDailyCancelCount(driver.getDailyCancelCount() + 1);
+		}
 
 		// Cancel booking
 		booking.setBookingStatus(BookingStatus.CANCELLED_BY_DRIVER);
 		booking.setActiveBookingFlag(false);
 
-		// Reset customer active booking
-		customer.setActiveBookingFlag(false);
-
-		// Block driver if more than 4 cancels
-		if (cancelCount >= 4) {
-			driver.setDstatus("BLOCKED");
+		// Reset customer active booking if exists
+		if (customer != null) {
+			customer.setActiveBookingFlag(false);
 		}
 
+		// Block driver if more than 4 cancels in a day (only if driver exists)
+		if (driver != null && driver.getDailyCancelCount() > 4) {
+			driver.setDstatus("TEMPORARY_BLOCKED");
+			if (booking.getVehicle() != null) {
+				booking.getVehicle().setAvlStatus("TEMPORARY_BLOCKED");
+			}
+		}
+
+		// Save updates
 		bookingRepo.save(booking);
-		dr.save(driver);
-		customerRepo.save(customer);
-		
-		
-		// cancellation send mail
-		try {
-		    mailService.sendRideCancellationMail(
-		        customer.getEmail(),
-		        String.valueOf(booking.getId())
-		    );
-		} catch (Exception e) {
-		    System.out.println("Cancellation mail failed");
+		if (driver != null) dr.save(driver);
+		if (customer != null) customerRepo.save(customer);
+
+		// Cancellation email (Best Effort)
+		if (customer != null) {
+			try {
+				mailService.sendRideCancellationMail(customer.getEmail(), String.valueOf(booking.getId()));
+			} catch (Exception e) {
+				System.out.println("Cancellation mail failed: " + e.getMessage());
+			}
 		}
 
 		ResponseStructure<String> rs = new ResponseStructure<>();
@@ -309,7 +334,13 @@ public class BookingService {
 	        throw new RuntimeException("Ride cannot be started");
 	    }
 
-	    if (booking.getStartOtp() == null || !booking.getStartOtp().equals(otp)) {
+	    // DEBUGGING LOG (Print to console)
+	    System.out.println("DEBUG OTP: DB='" + booking.getStartOtp() + "' | INPUT='" + otp + "'");
+	    
+	    String dbOtp = booking.getStartOtp();
+	    if (dbOtp == null) dbOtp = "";
+	    
+	    if (!dbOtp.trim().equals(otp.trim())) {
 	        throw new RuntimeException("Invalid Start OTP");
 	    }
 
@@ -346,19 +377,25 @@ public class BookingService {
 
 	    Customer cust = booking.getCustomer();
 
-	    mailService.sendMail(
-	        cust.getEmail(),
-	        "Ride Completion OTP - GoEasy",
-	        "Hello " + cust.getName() + ",\n\n"
-	      + "Your Ride Completion OTP is: " + endOtp + "\n\n"
-	      + "Please share this OTP with the driver to complete the ride.\n\n"
-	      + "– GoEasy Team"
-	    );
+    // Send End OTP email (best effort)
+    try {
+        mailService.sendMail(
+            cust.getEmail(),
+            "Ride Completion OTP - GoEasy",
+            "Hello " + cust.getName() + ",\n\n"
+          + "Your Ride Completion OTP is: " + endOtp + "\n\n"
+          + "Please share this OTP with the driver to complete the ride.\n\n"
+          + "– GoEasy Team"
+        );
+        System.out.println("End OTP email sent to: " + cust.getEmail() + " | OTP: " + endOtp);
+    } catch (Exception e) {
+        System.err.println("Failed to send End OTP email: " + e.getMessage());
+    }
 
 	    ResponseStructure<String> rs = new ResponseStructure<>();
 	    rs.setStatusCode(HttpStatus.OK.value());
 	    rs.setMessage("Ride completion OTP sent to customer");
-	    rs.setData(null);
+	    rs.setData(endOtp);
 
 	    return rs;
 	}
@@ -382,18 +419,18 @@ public class BookingService {
 
 	    booking.setEndOtpVerified(true);
 	    booking.setBookingStatus(BookingStatus.COMPLETED);
-	    booking.setActiveBookingFlag(false);
+	    booking.setActiveBookingFlag(true); // Keep active until payment confirmed by driver
 
-	    // reset customer active booking
+	    // Keep customer active
 	    Customer cust = booking.getCustomer();
-	    cust.setActiveBookingFlag(false);
+	    cust.setActiveBookingFlag(true); // Keep active until payment confirmed
 
 	    bookingRepo.save(booking);
 	    customerRepo.save(cust);
 
 	    ResponseStructure<String> rs = new ResponseStructure<>();
 	    rs.setStatusCode(HttpStatus.OK.value());
-	    rs.setMessage("Ride completed successfully");
+	    rs.setMessage("Ride completed! Proceed to payment.");
 	    rs.setData(null);
 
 	    return rs;

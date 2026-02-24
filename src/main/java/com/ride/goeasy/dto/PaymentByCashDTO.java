@@ -8,9 +8,6 @@ public class PaymentByCashDTO {
   private double amountPaid;
   private  String paymentType ;
   
-  
-  
-  
    
 
   public String getPaymentType() {

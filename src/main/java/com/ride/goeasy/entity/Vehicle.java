@@ -32,8 +32,7 @@ public class Vehicle {
 	private Double avgspeed;
 
 	@OneToOne
-
-	@JsonIgnore
+	@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"vehicle", "dblist", "userr"})
 	@JoinColumn(name = "driver_id", nullable = false)
 	private Driver driver;
 

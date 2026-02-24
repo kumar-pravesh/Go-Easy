@@ -31,6 +31,9 @@ public class Driver {
 	@OneToOne
     private Userr userr;
     
+    private Integer dailyCancelCount = 0;
+    private java.time.LocalDate lastCancelDate;
+    
 
     @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL)
     @JsonManagedReference
@@ -163,6 +166,22 @@ public class Driver {
 
 	public void setUserr(Userr userr) {
 		this.userr = userr;
+	}
+
+	public Integer getDailyCancelCount() {
+		return dailyCancelCount;
+	}
+
+	public void setDailyCancelCount(Integer dailyCancelCount) {
+		this.dailyCancelCount = dailyCancelCount;
+	}
+
+	public java.time.LocalDate getLastCancelDate() {
+		return lastCancelDate;
+	}
+
+	public void setLastCancelDate(java.time.LocalDate lastCancelDate) {
+		this.lastCancelDate = lastCancelDate;
 	}
 
     @Override

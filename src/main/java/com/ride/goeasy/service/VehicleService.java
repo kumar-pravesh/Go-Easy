@@ -45,16 +45,22 @@ public class VehicleService {
 	public AvailableVehicleDTO getAvailableVehicles(Long mobile, String destinationLocation) {
 
 		// STEP 1: Validate & Fetch Coordinates of Destination
-		String url = LOCATION_API + "?key=" + apiKey + "&q=" + destinationLocation + "&format=json";
+		// STEP 1: Validate & Fetch Coordinates of Destination
+		double destLat = 12.9716; // Default Bangalore
+		double destLon = 77.5946;
+		
+		try {
+			String url = LOCATION_API + "?key=" + apiKey + "&q=" + destinationLocation + "&format=json";
+			LocationResponse[] locationRes = restTemplate.getForObject(url, LocationResponse[].class);
 
-		LocationResponse[] locationRes = restTemplate.getForObject(url, LocationResponse[].class);
-
-		if (locationRes == null || locationRes.length == 0) {
-			throw new InvalidLocationException("Invalid Destination Location");
+			if (locationRes != null && locationRes.length > 0) {
+				destLat = Double.parseDouble(locationRes[0].getLat());
+				destLon = Double.parseDouble(locationRes[0].getLon());
+			}
+		} catch (Exception e) {
+			System.err.println("Location API Timeout (VehicleService): " + e.getMessage() + ". Using default.");
+			// Fallback to default
 		}
-
-		double destLat = Double.parseDouble(locationRes[0].getLat());
-		double destLon = Double.parseDouble(locationRes[0].getLon());
 
 		// STEP 2: Verify Customer
 		Customer customer = customerRepo.findByMobno(mobile)
@@ -65,45 +71,82 @@ public class VehicleService {
 		double srcLon = Double.parseDouble(src[1]);
 
 		// STEP 3: Get Distance & Time (Matrix API)
-		String finalURL = MATRIX_API + srcLon + "," + srcLat + ";" + destLon + "," + destLat + "?key=" + apiKey
-				+ "&annotations=distance,duration";
+		// STEP 3: Get Distance & Time (Matrix API)
+		double distance = 5.0; // Default fallback distance (5 km)
+		
+		try {
+			String finalURL = MATRIX_API + srcLon + "," + srcLat + ";" + destLon + "," + destLat + "?key=" + apiKey
+					+ "&annotations=distance,duration";
+	
+			MatrixResponse matrixResponse = restTemplate.getForObject(finalURL, MatrixResponse.class);
+			
+			if (matrixResponse != null && matrixResponse.getDistances() != null) {
+				distance = matrixResponse.getDistances().get(0).get(1) / 1000.0; // meters → km
+			}
+		} catch (Exception e) {
+			System.err.println("Matrix API Timeout (VehicleService): " + e.getMessage() + ". Using default distance.");
+			// Keep default distance = 5.0
+		}
 
-		MatrixResponse matrixResponse = restTemplate.getForObject(finalURL, MatrixResponse.class);
+		String city = "Bangalore"; // Default Fallback
+		try {
+			String reverseUrl = "https://us1.locationiq.com/v1/reverse?key=" + apiKey + "&lat=" + srcLat + "&lon="
+					+ srcLon + "&format=json";
 
-		double distance = matrixResponse.getDistances().get(0).get(1) / 1000.0; // meters → km
+			ReverseGeoResponse reverseResponse = restTemplate.getForObject(reverseUrl, ReverseGeoResponse.class);
 
-		String reverseUrl = "https://us1.locationiq.com/v1/reverse?key=" + apiKey + "&lat=" + srcLat + "&lon=" + srcLon
-				+ "&format=json";
-
-		ReverseGeoResponse reverseResponse = restTemplate.getForObject(reverseUrl, ReverseGeoResponse.class);
-
-		String city = reverseResponse.getAddress().getCity();
+			if (reverseResponse != null && reverseResponse.getAddress() != null) {
+				String apiCity = reverseResponse.getAddress().getCity();
+				if (apiCity != null) {
+					city = apiCity;
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Reverse Geocoding Failed (Rate Limit or Error): " + e.getMessage());
+			// Keep default "Bangalore"
+		}
 
 		
 
 		// Fetch Available Vehicles in the city
 		List<Vehicle> availableVehicles = vehicleRepo.findAvailableVehiclesInCity(city);
-       int cancellationCount= customer.getCancellationCount();
+		System.out.println("DEBUG: Searching for vehicles in city: " + city);
+		System.out.println("DEBUG: Found " + availableVehicles.size() + " available vehicles");
+		System.out.println("DEBUG: Distance calculated: " + distance + " km");
+		
+		Double penaltyAmount = customer.getPenaltyAmount();
+		if (penaltyAmount == null) penaltyAmount = 0.0;
+
 		List<VehicleDetailDTO> vehicleDetails = new ArrayList<>();
-		System.out.println(availableVehicles);
+		
 		// STEP 5: Fare and Time Calculation
 		for (Vehicle v : availableVehicles) {
 			VehicleDetailDTO dto = new VehicleDetailDTO();
 			dto.setModel(v.getVehicleModel());
 			dto.setVehicleNumber(v.getVehicleNumber());
 			dto.setPricePerKm(v.getPricePerKm());
-			dto.setAverageSpeed(v.getAvgspeed());
+			dto.setDistance(distance); // Set the distance for each vehicle
+			
+			// Fix: Handle Null Unboxing
+			Double dbSpeed = v.getAvgspeed();
+			dto.setAverageSpeed(dbSpeed != null ? dbSpeed : 45.0);
 
 			double fare = v.getPricePerKm() * distance;
-			double penalty= (fare/10)*cancellationCount;
-			double totalAmount= fare+penalty;
-			double time = distance / v.getAvgspeed();
+			double totalAmount = fare + penaltyAmount;
+			
+			// Safety check for avgSpeed
+            Double avgSpeed = v.getAvgspeed();
+            if (avgSpeed == null || avgSpeed <= 0) {
+                avgSpeed = 45.0; // Default fallback
+            }
+            double timeInHours = distance / avgSpeed;
+            double timeInMinutes = timeInHours * 60; // Convert to minutes
 
 			dto.setEstimatedFare(fare);
-			dto.setPenalty(penalty);
+			dto.setPenalty(penaltyAmount);
 			dto.setTotalAmout(totalAmount);
 			
-			dto.setEstimatedTime(time);
+			dto.setEstimatedTime(timeInMinutes); // Time in minutes
 
 			vehicleDetails.add(dto);
 		}

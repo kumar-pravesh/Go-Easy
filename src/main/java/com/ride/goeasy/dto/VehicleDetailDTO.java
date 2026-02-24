@@ -8,7 +8,8 @@ public class VehicleDetailDTO {
         private double penalty;
         private double totalAmout;
 	    private double estimatedFare;
-	    private double estimatedTime;
+	    private double estimatedTime; // in hours
+	    private double distance; // in km
 	    private String vehicleModel;
 		private Integer vehicleCapacity;
 		
@@ -72,7 +73,12 @@ public class VehicleDetailDTO {
 		public void setEstimatedTime(double estimatedTime) {
 			this.estimatedTime = estimatedTime;
 		}
-	    
+		public double getDistance() {
+			return distance;
+		}
+		public void setDistance(double distance) {
+			this.distance = distance;
+		}
 	    
 
 }

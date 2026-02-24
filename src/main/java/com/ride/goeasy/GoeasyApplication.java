@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 public class GoeasyApplication {
 
 	public static void main(String[] args) {
