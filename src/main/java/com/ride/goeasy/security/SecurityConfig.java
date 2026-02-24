@@ -37,7 +37,13 @@ public class SecurityConfig {
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 	    http
 	        .csrf(csrf -> csrf.disable()) 
-	        .cors(cors -> cors.disable()) 
+	        .cors(cors -> cors.configurationSource(request -> {
+	            var corsConfiguration = new org.springframework.web.cors.CorsConfiguration();
+	            corsConfiguration.setAllowedOrigins(java.util.List.of("http://localhost:5173", "http://localhost:5174")); 
+	            corsConfiguration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+	            corsConfiguration.setAllowedHeaders(java.util.List.of("*"));
+	            return corsConfiguration;
+	        })) 
 	        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 	        .authorizeHttpRequests(auth -> auth
 	        	    // 🔓 PUBLIC
@@ -50,11 +56,15 @@ public class SecurityConfig {
 	                    "/driver/generateUpiQr/**"
 	                ).permitAll()
 
-	                // 👤 CUSTOMER
+	                // 👤 CUSTOMER & DRIVER SHARED
 	                .requestMatchers(
 	                    "/customer/**",
-	                    "/booking/**"
+	                    "/availableVehicles" // Vehicle search endpoint
 	                ).hasRole("CUSTOMER")
+	                
+	                .requestMatchers(
+	                    "/booking/**"
+	                ).authenticated() // Both Drivers and Customers need access to booking endpoints
 
 	                // 🚖 DRIVER
 	                .requestMatchers("/driver/**")

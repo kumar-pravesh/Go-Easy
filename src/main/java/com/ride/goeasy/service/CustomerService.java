@@ -25,6 +25,9 @@ import com.ride.goeasy.repository.CustomerRepo;
 import com.ride.goeasy.repository.DriverRepo;
 import com.ride.goeasy.repository.PaymentRepo;
 import com.ride.goeasy.repository.UserrRepo;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import com.ride.goeasy.dto.LocationResponse;
 import com.ride.goeasy.repository.VehicleRepo;
 import com.ride.goeasy.response.ResponseStructure;
 
@@ -58,11 +61,23 @@ public class CustomerService {
 	@Autowired
 	BookingRepo br;
 	
+	@Autowired
+	private RestTemplate restTemplate;
+
+	@Value("${locationiq.api.key}")
+	private String apiKey;
+
+	private final String REVERSE_API = "https://us1.locationiq.com/v1/reverse";
+	
 	
 	
 	// SAVE CUSTOMER
 
 	public ResponseStructure<CustomerResponseDTO> saveCustomer(CustomerDTO dto) {
+
+		if (userrRepo.existsByMobNo(dto.getMobno())) {
+			throw new RuntimeException("User with this mobile number already exists. Please Login.");
+		}
 
 		Customer c = new Customer();
 		c.setName(dto.getName());
@@ -187,7 +202,7 @@ public class CustomerService {
 
 	}
 
-	public ResponseStructure<RideDetailsDTO> getDriverActiveBooking(long mobNo) {
+	public ResponseStructure<Booking> getDriverActiveBooking(long mobNo) {
 		Customer c = customerRepo.findByMobno(mobNo)
 				.orElseThrow(() -> new CustomerNotFoundException("Customer Not Found with Mobile: " + mobNo));
 		List<Booking> blist = c.getBookings();
@@ -219,6 +234,13 @@ public class CustomerService {
 
 		int count = c.getCancellationCount() + 1;
 		c.setCancellationCount(count);
+		
+		// Calculate 10% penalty for next ride
+		if (b.getFare() != null) {
+			double penalty = b.getFare() * 0.10;
+			c.setPenaltyAmount((c.getPenaltyAmount() != null ? c.getPenaltyAmount() : 0.0) + penalty);
+		}
+		
 		p.setPaymentStatus("Cancelled By customer");
 		p.setAmount(0);
 		p.setPaymentType("Ride cancelled");
@@ -242,8 +264,23 @@ public class CustomerService {
 	}
 
 	public String getCityFromCoordinates(double lat, double lon) {
-		// TODO Auto-generated method stub
-		return null;
+		try {
+			String url = REVERSE_API + "?key=" + apiKey + "&lat=" + lat + "&lon=" + lon + "&format=json";
+			LocationResponse location = restTemplate.getForObject(url, LocationResponse.class);
+
+			if (location != null && location.getAddress() != null) {
+				String apiCity = location.getAddress().getCity();
+				if (apiCity == null) apiCity = location.getAddress().getTown();
+				if (apiCity == null) apiCity = location.getAddress().getVillage();
+				if (apiCity == null) apiCity = location.getAddress().getCounty();
+				if (apiCity == null) apiCity = location.getAddress().getState();
+
+				return apiCity;
+			}
+		} catch (Exception e) {
+			System.err.println("Location IQ API failed (Customer): " + e.getMessage());
+		}
+		return "Unknown Location";
 	}
 
 }

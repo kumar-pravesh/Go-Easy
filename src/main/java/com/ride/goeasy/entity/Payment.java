@@ -21,20 +21,21 @@ public class Payment {
     
     @ManyToOne
     @JoinColumn(name = "customer_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("payments")
     private Customer customer;
 
-    
-    
     // Many payments can belong to one vehicle
     
     @ManyToOne
     @JoinColumn(name = "vehicle_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("payments")
     private Vehicle vehicle;
 
     // One booking has exactly one payment
     
     @OneToOne
     @JoinColumn(name = "booking_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Booking booking;
 
     private double amount;

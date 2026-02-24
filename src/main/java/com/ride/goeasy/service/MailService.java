@@ -20,7 +20,12 @@ public class MailService {
 		mail.setFrom("pk4645478@gmail.com");
 		mail.setText(message);
 
-		javaMailSender.send(mail);
+		try {
+			javaMailSender.send(mail);
+		} catch (Exception e) {
+			System.err.println("Failed to send email to " + to + ": " + e.getMessage());
+			// Swallow exception to prevent blocking the flow
+		}
 
 	}
 	// Driver Registration

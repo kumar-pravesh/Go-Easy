@@ -37,14 +37,14 @@ public class Customer {
 	@JsonIgnore
 	private Userr userr;
 	// One Customer -> Many Bookings
-	@OneToMany
-	 
-	 @JsonIgnore
+	@OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
+	@JsonIgnore
 	private List<Booking> bookings;
 	
 	private  boolean activeBookingFlag;
     private int cancellationCount;
-   
+    private Double penaltyAmount = 0.0;
+    
     
 	
 	
@@ -171,5 +171,13 @@ public class Customer {
 
 	public void setBookings(List<Booking> bookings) {
 		this.bookings = bookings;
+	}
+
+	public Double getPenaltyAmount() {
+		return penaltyAmount;
+	}
+
+	public void setPenaltyAmount(Double penaltyAmount) {
+		this.penaltyAmount = penaltyAmount;
 	}
 }

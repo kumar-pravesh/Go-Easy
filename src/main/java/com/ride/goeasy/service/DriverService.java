@@ -72,68 +72,94 @@ public class DriverService {
 	private final String REVERSE_API = "https://us1.locationiq.com/v1/reverse";
 
 	public ResponseStructure<Driver> saveDriverWithVehicle(Driver driver) {
+		try {
+			Vehicle vehicle = driver.getVehicle();
 
-		Vehicle vehicle = driver.getVehicle();
+			if (vehicle == null) {
+				throw new RuntimeException("Vehicle details are missing");
+			}
 
-		// 🔴 VALIDATION
-		if (vehicle.getLatitude() == null || vehicle.getLongitude() == null) {
-			throw new RuntimeException("Latitude and Longitude are required");
+			// 🔴 VALIDATION
+			if (userrRepo.existsByMobNo(driver.getMobNo())) {
+				throw new RuntimeException("User with this mobile number already exists. Please Login.");
+			}
+
+			if (vehicle.getLatitude() == null || vehicle.getLongitude() == null) {
+				throw new RuntimeException("Latitude and Longitude are required");
+			}
+
+			// 🔹 Reverse Geocoding (lat/lon -> city)
+			try {
+				String url = REVERSE_API + "?key=" + apiKey + "&lat=" + vehicle.getLatitude() + "&lon=" + vehicle.getLongitude()
+						+ "&format=json";
+
+				LocationResponse location = restTemplate.getForObject(url, LocationResponse.class);
+
+				if (location != null && location.getAddress() != null) {
+					String apiCity = location.getAddress().getCity();
+					if (apiCity == null) apiCity = location.getAddress().getTown();
+					if (apiCity == null) apiCity = location.getAddress().getCounty();
+					if (apiCity == null) apiCity = location.getAddress().getState();
+					
+					if (apiCity != null) {
+						vehicle.setCity(apiCity);
+					}
+				}
+			} catch (Exception e) {
+				System.err.println("Location IQ API failed: " + e.getMessage());
+				// Fallback: If city was provided by frontend, keep it. 
+				// If not, set default.
+				if(vehicle.getCity() == null || vehicle.getCity().isEmpty()) {
+					vehicle.setCity("Unknown City"); 
+				}
+			}
+
+			// 🔹 RELATIONSHIP
+			vehicle.setDriver(driver);
+			vehicle.setAvlStatus("AVAILABLE"); // Fix: Ensure vehicle is discoverable
+			
+			// Use user provided speed or default
+			if (vehicle.getAvgspeed() == null || vehicle.getAvgspeed() <= 0) {
+			    vehicle.setAvgspeed(45.0);
+			}
+			
+			driver.setVehicle(vehicle);
+
+			Userr userr = new Userr();
+			userr.setMobno(driver.getMobNo());
+			userr.setPassword(passwordEncoder.encode(driver.getPassword()));
+			userr.setRole("DRIVER");
+
+			userrRepo.save(userr);
+			driver.setPassword(userr.getPassword());
+			driver.setUserr(userr);
+			
+			// 🔹 SAVE (ONLY ONCE)
+			Driver savedDriver = driverRepo.save(driver);
+			
+			//  DRIVER REGISTRATION MAIL
+			try {
+				mailService.sendDriverRegistrationMail(
+					savedDriver.getMailId(),
+					savedDriver.getDname()
+				);
+			} catch (Exception e) {
+				System.err.println("Mail sending failed: " + e.getMessage());
+			}
+
+			ResponseStructure<Driver> rs = new ResponseStructure<>();
+			rs.setStatusCode(HttpStatus.CREATED.value());
+			rs.setMessage("Driver Saved Successfully");
+			rs.setData(savedDriver);
+
+			return rs;
+			
+		} catch (RuntimeException re) {
+			throw re; // Propagate RuntimeExceptions (including our "User exists")
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Internal Error: " + e.getMessage());
 		}
-
-		// 🔹 Reverse Geocoding (lat/lon -> city)
-		String url = REVERSE_API + "?key=" + apiKey + "&lat=" + vehicle.getLatitude() + "&lon=" + vehicle.getLongitude()
-				+ "&format=json";
-
-		LocationResponse location = restTemplate.getForObject(url, LocationResponse.class);
-
-		if (location == null || location.getAddress() == null) {
-			throw new RuntimeException("Unable to fetch city from coordinates");
-		}
-
-		// 🔹 Safe city extraction
-		String city = location.getAddress().getCity();
-		if (city == null)
-			city = location.getAddress().getTown();
-		if (city == null)
-			city = location.getAddress().getCounty();
-		if (city == null)
-			city = location.getAddress().getState();
-
-		if (city == null) {
-			throw new RuntimeException("City not found from given coordinates");
-		}
-
-		// 🔹 SET CITY
-		vehicle.setCity(city);
-
-		// 🔹 RELATIONSHIP
-		vehicle.setDriver(driver);
-		driver.setVehicle(vehicle);
-
-		Userr userr = new Userr();
-		userr.setMobno(driver.getMobNo());
-		userr.setPassword(passwordEncoder.encode(driver.getPassword()));
-		userr.setRole("DRIVER");
-
-		userrRepo.save(userr);
-		driver.setPassword(userr.getPassword());
-		driver.setUserr(userr);
-		// 🔹 SAVE (ONLY ONCE)
-		Driver savedDriver = driverRepo.save(driver);
-		
-		//  DRIVER REGISTRATION MAIL
-		mailService.sendDriverRegistrationMail(
-		    savedDriver.getMailId(),
-		    savedDriver.getDname()
-		);
-
-
-		ResponseStructure<Driver> rs = new ResponseStructure<>();
-		rs.setStatusCode(HttpStatus.CREATED.value());
-		rs.setMessage("Driver Saved Successfully");
-		rs.setData(savedDriver);
-
-		return rs;
 	}
 
 //	Find Diver By ID
@@ -229,6 +255,7 @@ public class DriverService {
 		Customer c = b.getCustomer();
 		c.setActiveBookingFlag(false);
 		c.setCancellationCount(0);
+		c.setPenaltyAmount(0.0);
 
 		Vehicle v = b.getVehicle();
 		v.setAvlStatus("AVAILABLE");
@@ -258,11 +285,15 @@ public class DriverService {
 		
 		
 //		payment confirmation mail logic
-		mailService.sendPaymentConfirmationMail(
+		try {
+			mailService.sendPaymentConfirmationMail(
 			    c.getEmail(),
 			    b.getFare(),
 			    "CASH-" + b.getId()
 			);
+		} catch (Exception e) {
+			System.err.println("Mail sending failed: " + e.getMessage());
+		}
 
 
 		ResponseStructure<PaymentByCashDTO> rs = new ResponseStructure<>();
@@ -285,7 +316,7 @@ public class DriverService {
 
 	}
 
-	public ResponseStructure<RideDetailsDTO> getDriverActiveBooking(long mobNo) {
+	public ResponseStructure<Booking> getDriverActiveBooking(long mobNo) {
 		Driver d = driverRepo.findByMobNo(mobNo)
 				.orElseThrow(() -> new DriverNotFoundException("Driver Not Found with Mobile: " + mobNo));
 		List<Booking> blist = d.getDblist();
@@ -363,6 +394,9 @@ public class DriverService {
 
 		Customer c = b.getCustomer();
 		c.setActiveBookingFlag(false);
+		b.setActiveBookingFlag(false); // Clear the active booking flag!
+		c.setCancellationCount(0); // Reset count on success
+		c.setPenaltyAmount(0.0); // Reset penalty on success
 
 		Vehicle v = b.getVehicle();
 		v.setAvlStatus("AVAILABLE");
@@ -387,17 +421,47 @@ public class DriverService {
 		
 		
 //		mail
-		mailService.sendPaymentConfirmationMail(
+		try {
+			mailService.sendPaymentConfirmationMail(
 			    c.getEmail(),
 			    b.getFare(),
 			    "UPI-" + b.getId()
 			);
+		} catch (Exception e) {
+			System.err.println("Mail sending failed: " + e.getMessage());
+		}
 
 
 		ResponseStructure<PaymentByUpiDTO> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());
 		rs.setMessage("UPI Payment Successful");
 		rs.setData(dto);
+
+		return rs;
+	}
+
+	public ResponseStructure<String> updateDriverStatus(long mobNo, String status) {
+		Driver d = driverRepo.findByMobNo(mobNo)
+				.orElseThrow(() -> new DriverNotFoundException("Driver Not Found with Mobile: " + mobNo));
+
+		d.setDstatus(status);
+		
+		Vehicle v = d.getVehicle();
+		if (v != null) {
+			if ("ONLINE".equalsIgnoreCase(status)) {
+				v.setAvlStatus("AVAILABLE");
+			} else if ("OFFLINE".equalsIgnoreCase(status)) {
+				v.setAvlStatus("OFFLINE");
+			}
+			vehicleRepo.save(v);
+		}
+		
+		driverRepo.save(d);
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Driver status updated to " + status);
+		rs.setData(status);
 
 		return rs;
 	}
