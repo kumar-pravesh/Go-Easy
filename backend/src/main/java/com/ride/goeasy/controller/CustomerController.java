@@ -61,9 +61,9 @@ public class CustomerController {
 		    return  customerService.getDriverActiveBooking(mobNo);
 		    
 		}
-	    @PostMapping("/cancellRide")
-	    public ResponseStructure<String> cancellRide(@RequestParam int bookingId){
-	    	return customerService.cancellRide(bookingId);
+	    @PostMapping("/cancelRide")
+	    public ResponseStructure<String> cancelRide(@RequestParam int bookingId){
+	    	return customerService.cancelRide(bookingId);
 	    }
 
 	@GetMapping("/getCity")

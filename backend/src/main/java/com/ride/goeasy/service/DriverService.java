@@ -72,94 +72,86 @@ public class DriverService {
 	private final String REVERSE_API = "https://us1.locationiq.com/v1/reverse";
 
 	public ResponseStructure<Driver> saveDriverWithVehicle(Driver driver) {
-		try {
-			Vehicle vehicle = driver.getVehicle();
+		Vehicle vehicle = driver.getVehicle();
 
-			if (vehicle == null) {
-				throw new RuntimeException("Vehicle details are missing");
-			}
-
-			// 🔴 VALIDATION
-			if (userrRepo.existsByMobNo(driver.getMobNo())) {
-				throw new RuntimeException("User with this mobile number already exists. Please Login.");
-			}
-
-			if (vehicle.getLatitude() == null || vehicle.getLongitude() == null) {
-				throw new RuntimeException("Latitude and Longitude are required");
-			}
-
-			// 🔹 Reverse Geocoding (lat/lon -> city)
-			try {
-				String url = REVERSE_API + "?key=" + apiKey + "&lat=" + vehicle.getLatitude() + "&lon=" + vehicle.getLongitude()
-						+ "&format=json";
-
-				LocationResponse location = restTemplate.getForObject(url, LocationResponse.class);
-
-				if (location != null && location.getAddress() != null) {
-					String apiCity = location.getAddress().getCity();
-					if (apiCity == null) apiCity = location.getAddress().getTown();
-					if (apiCity == null) apiCity = location.getAddress().getCounty();
-					if (apiCity == null) apiCity = location.getAddress().getState();
-					
-					if (apiCity != null) {
-						vehicle.setCity(apiCity);
-					}
-				}
-			} catch (Exception e) {
-				System.err.println("Location IQ API failed: " + e.getMessage());
-				// Fallback: If city was provided by frontend, keep it. 
-				// If not, set default.
-				if(vehicle.getCity() == null || vehicle.getCity().isEmpty()) {
-					vehicle.setCity("Unknown City"); 
-				}
-			}
-
-			// 🔹 RELATIONSHIP
-			vehicle.setDriver(driver);
-			vehicle.setAvlStatus("AVAILABLE"); // Fix: Ensure vehicle is discoverable
-			
-			// Use user provided speed or default
-			if (vehicle.getAvgspeed() == null || vehicle.getAvgspeed() <= 0) {
-			    vehicle.setAvgspeed(45.0);
-			}
-			
-			driver.setVehicle(vehicle);
-
-			Userr userr = new Userr();
-			userr.setMobno(driver.getMobNo());
-			userr.setPassword(passwordEncoder.encode(driver.getPassword()));
-			userr.setRole("DRIVER");
-
-			userrRepo.save(userr);
-			driver.setPassword(userr.getPassword());
-			driver.setUserr(userr);
-			
-			// 🔹 SAVE (ONLY ONCE)
-			Driver savedDriver = driverRepo.save(driver);
-			
-			//  DRIVER REGISTRATION MAIL
-			try {
-				mailService.sendDriverRegistrationMail(
-					savedDriver.getMailId(),
-					savedDriver.getDname()
-				);
-			} catch (Exception e) {
-				System.err.println("Mail sending failed: " + e.getMessage());
-			}
-
-			ResponseStructure<Driver> rs = new ResponseStructure<>();
-			rs.setStatusCode(HttpStatus.CREATED.value());
-			rs.setMessage("Driver Saved Successfully");
-			rs.setData(savedDriver);
-
-			return rs;
-			
-		} catch (RuntimeException re) {
-			throw re; // Propagate RuntimeExceptions (including our "User exists")
-		} catch (Exception e) {
-			e.printStackTrace();
-			throw new RuntimeException("Internal Error: " + e.getMessage());
+		if (vehicle == null) {
+			throw new RuntimeException("Vehicle details are missing");
 		}
+
+		// 🔴 VALIDATION
+		if (userrRepo.existsByMobNo(driver.getMobNo())) {
+			throw new RuntimeException("User with this mobile number already exists. Please Login.");
+		}
+
+		if (vehicle.getLatitude() == null || vehicle.getLongitude() == null) {
+			throw new RuntimeException("Latitude and Longitude are required");
+		}
+
+		// 🔹 Reverse Geocoding (lat/lon -> city)
+		try {
+			String url = REVERSE_API + "?key=" + apiKey + "&lat=" + vehicle.getLatitude() + "&lon=" + vehicle.getLongitude()
+					+ "&format=json";
+
+			LocationResponse location = restTemplate.getForObject(url, LocationResponse.class);
+
+			if (location != null && location.getAddress() != null) {
+				String apiCity = location.getAddress().getCity();
+				if (apiCity == null) apiCity = location.getAddress().getTown();
+				if (apiCity == null) apiCity = location.getAddress().getCounty();
+				if (apiCity == null) apiCity = location.getAddress().getState();
+				
+				if (apiCity != null) {
+					vehicle.setCity(apiCity);
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Location IQ API failed: " + e.getMessage());
+			// Fallback: If city was provided by frontend, keep it. 
+			// If not, set default.
+			if(vehicle.getCity() == null || vehicle.getCity().isEmpty()) {
+				vehicle.setCity("Unknown City"); 
+			}
+		}
+
+		// 🔹 RELATIONSHIP
+		vehicle.setDriver(driver);
+		vehicle.setAvlStatus("AVAILABLE"); // Fix: Ensure vehicle is discoverable
+		
+		// Use user provided speed or default
+		if (vehicle.getAvgspeed() == null || vehicle.getAvgspeed() <= 0) {
+		    vehicle.setAvgspeed(45.0);
+		}
+		
+		driver.setVehicle(vehicle);
+
+		Userr userr = new Userr();
+		userr.setMobno(driver.getMobNo());
+		userr.setPassword(passwordEncoder.encode(driver.getPassword()));
+		userr.setRole("DRIVER");
+
+		userrRepo.save(userr);
+		driver.setPassword(userr.getPassword());
+		driver.setUserr(userr);
+		
+		// 🔹 SAVE (ONLY ONCE)
+		Driver savedDriver = driverRepo.save(driver);
+		
+		//  DRIVER REGISTRATION MAIL
+		try {
+			mailService.sendDriverRegistrationMail(
+				savedDriver.getMailId(),
+				savedDriver.getDname()
+			);
+		} catch (Exception e) {
+			System.err.println("Mail sending failed: " + e.getMessage());
+		}
+
+		ResponseStructure<Driver> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.CREATED.value());
+		rs.setMessage("Driver Saved Successfully");
+		rs.setData(savedDriver);
+
+		return rs;
 	}
 
 //	Find Diver By ID

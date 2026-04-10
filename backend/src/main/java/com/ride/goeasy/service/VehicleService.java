@@ -131,7 +131,11 @@ public class VehicleService {
 			Double dbSpeed = v.getAvgspeed();
 			dto.setAverageSpeed(dbSpeed != null ? dbSpeed : 45.0);
 
-			double fare = v.getPricePerKm() * distance;
+			// Realistic Industry Rates (similar to Uber/Ola/Rapido)
+			double baseRate = 12.0; // Base rate per KM for standard vehicle
+			double adjustedRate = v.getPricePerKm() != null && v.getPricePerKm() < 25 ? v.getPricePerKm() : baseRate;
+			double fare = 100 + (distance * adjustedRate); // 100 base fare + distance-based rate
+			
 			double totalAmount = fare + penaltyAmount;
 			
 			// Safety check for avgSpeed

@@ -110,13 +110,8 @@ public class BookingService {
 
 		// STEP 5: Create Booking
 
-		if (cust.isActiveBookingFlag() == true) {
-			ResponseStructure<Booking> rs = new ResponseStructure<>();
-			rs.setStatusCode(HttpStatus.CREATED.value());
-			rs.setMessage("Your current ride has not comleted");
-			rs.setData(null);
-		
-			return rs;
+		if (cust.isActiveBookingFlag()) {
+			throw new RuntimeException("Your current ride is not completed. You cannot book a new one until the active trip is finished.");
 		}
 
 		Booking b = new Booking();
@@ -413,7 +408,10 @@ public class BookingService {
 	    }
 
 	    // OTP validation
-	    if (booking.getEndOtp() == null || !booking.getEndOtp().equals(otp)) {
+	    String dbOtp = booking.getEndOtp();
+	    if (dbOtp == null) dbOtp = "";
+
+	    if (!dbOtp.trim().equals(otp != null ? otp.trim() : "")) {
 	        throw new RuntimeException("Invalid Completion OTP");
 	    }
 

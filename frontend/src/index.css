@@ -1,9 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --primary: #F7D100; /* Transit Yellow */
+  --primary-hover: #E6C000;
+  --bg-main: #0A0A0A; /* Urban Black */
+  --bg-secondary: #121212;
+  --bg-card: #18191B;
+  --text-primary: #FFFFFF;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --success: #22C55E;
+  --error: #EF4444;
+}
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 font-sans;
+    font-family: 'Inter', sans-serif;
+    @apply bg-[#0A0A0A] text-white selection:bg-[#F7D100] selection:text-black antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+    font-family: 'Lexend', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-[#18191B] border border-white/5 backdrop-blur-xl shadow-2xl;
+  }
+
+  .premium-input {
+    @apply w-full bg-[#1A1A1A] border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-[#F7D100] focus:ring-4 focus:ring-[#F7D100]/10 transition-all duration-300 placeholder:text-gray-600 font-medium;
+  }
+
+  .premium-button {
+    @apply bg-[#F7D100] text-black font-black uppercase tracking-wider px-8 py-4 rounded-2xl hover:bg-[#E6C000] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-[#F7D100]/10 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .premium-button-secondary {
+    @apply bg-white/5 text-white font-bold px-8 py-4 rounded-2xl hover:bg-white/10 active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 border border-white/10;
+  }
+
+  .transit-badge {
+    @apply px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 bg-white/5;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Responsiveness adjustments */
+@media (max-width: 640px) {
+  .premium-button {
+    @apply py-3.5 px-6 text-sm;
+  }
+  .premium-input {
+    @apply py-3.5 px-5;
   }
 }

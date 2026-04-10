@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
+import API_BASE_URL from '../api';
 
 const AuthContext = createContext();
 
@@ -19,7 +20,8 @@ export const AuthProvider = ({ children }) => {
     // Configure Axios default header
     useEffect(() => {
         if (token) {
-            axios.defaults.headers.common['Authorization'] = token;
+            const authStr = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+            axios.defaults.headers.common['Authorization'] = authStr;
             localStorage.setItem('token', token);
         } else {
             delete axios.defaults.headers.common['Authorization'];
@@ -29,18 +31,22 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (mobile, password, userRole) => {
         try {
-            const response = await axios.post('http://localhost:8080/auth/login', {
+            const response = await axios.post(`${API_BASE_URL}/auth/login`, {
                 mobileNo: mobile,
                 password: password
             });
 
             if (response.data.statusCode === 200) {
-                const newToken = response.data.data; // "Bearer ..."
+                const { token: newToken, mobileNo, name, role: backendRole } = response.data.data;
+                
                 setToken(newToken);
-                setRole(userRole);
+                setRole(backendRole);
 
-                // Fetch user details optionally or just store mobile/role
-                const userData = { mobile, role: userRole };
+                const userData = { 
+                    mobile: mobileNo, 
+                    name: name,
+                    role: backendRole 
+                };
                 setUser(userData);
                 localStorage.setItem('user', JSON.stringify(userData));
                 return true;

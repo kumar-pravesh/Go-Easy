@@ -210,7 +210,7 @@ public class CustomerService {
 	}
 
 //		cancel ride by customer
-	public ResponseStructure<String> cancellRide(int bookingId) {
+	public ResponseStructure<String> cancelRide(int bookingId) {
 
 		Booking b = br.findById(bookingId)
 				.orElseThrow(() -> new BookingNotFoundException("No any booking with given id:" + bookingId));
@@ -257,7 +257,7 @@ public class CustomerService {
 
 		ResponseStructure<String> rs = new ResponseStructure<String>();
 		rs.setStatusCode(HttpStatus.OK.value());
-		rs.setMessage("Booking Cencel Request Accepted");
+		rs.setMessage("Booking Cancel Request Accepted");
 		rs.setData("Booking cancelled by customer");
 
 		return rs;

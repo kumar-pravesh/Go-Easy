@@ -2,14 +2,14 @@ package com.ride.goeasy.dto;
 
 public class LoginRequestDTO {
 
-    private Long mobileNo;
+    private String mobileNo;
     private String password;
 
-    public Long getMobileNo() {
+    public String getMobileNo() {
         return mobileNo;
     }
 
-    public void setMobileNo(Long mobileNo) {
+    public void setMobileNo(String mobileNo) {
         this.mobileNo = mobileNo;
     }
 

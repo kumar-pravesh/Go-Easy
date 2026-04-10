@@ -11,4 +11,6 @@ import com.ride.goeasy.entity.Customer;
 public interface CustomerRepo extends JpaRepository<Customer, Integer> {
 	 // Custom method to find a customer by mobile number
     Optional<Customer> findByMobno(Long mobno);
+
+    Optional<Customer> findByEmail(String email);
 }

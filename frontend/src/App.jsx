@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import UserHome from './pages/UserHome';
 import DriverDashboard from './pages/DriverDashboard';
+import LandingPage from './pages/LandingPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 const ProtectedRoute = ({ children, role }) => {
@@ -18,7 +19,8 @@ function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/home" element={
           <ProtectedRoute>

@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { MapPin, Navigation, Clock, XCircle, Car, User, CreditCard, Banknote, History, X } from 'lucide-react';
+import API_BASE_URL from '../api';
+import { MapPin, Navigation, Clock, XCircle, Car, User, CreditCard, Banknote, History, X, LogOut, LocateFixed } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import logo from '../assets/logo.png';
+import { useNavigate } from 'react-router-dom';
+import logo from '../assets/logo.svg';
 
 const UserHome = () => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [source, setSource] = useState('');
     const [dest, setDest] = useState('');
     const [vehicles, setVehicles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [activeRide, setActiveRide] = useState(null);
-    const [paymentMode, setPaymentMode] = useState('CASH'); // CASH or UPI
+    const [paymentMode, setPaymentMode] = useState('CASH');
     const [showProfile, setShowProfile] = useState(false);
     const [bookingHistory, setBookingHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [locLoading, setLocLoading] = useState(false);
 
-    // Poll for active ride on mount
     useEffect(() => {
         if (!user?.mobile) return;
         const fetchActiveRide = async () => {
@@ -38,7 +40,6 @@ const UserHome = () => {
         return () => clearInterval(interval);
     }, [user]);
 
-    // Fetch booking history
     const fetchBookingHistory = async () => {
         setHistoryLoading(true);
         try {
@@ -54,48 +55,38 @@ const UserHome = () => {
     };
 
     const handleGetCurrentLocation = () => {
-        if (!navigator.geolocation) {
-            return alert("Geolocation is not supported by your browser");
-        }
+        if (!navigator.geolocation) return alert("Geolocation not supported");
         setLocLoading(true);
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            const { latitude, longitude } = position.coords;
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const { latitude, longitude } = pos.coords;
             try {
                 const res = await axios.get(`http://localhost:8080/customer/getCity?lat=${latitude}&lon=${longitude}`);
-                if (res.data.statusCode === 200) {
-                    setSource(res.data.data);
-                }
+                if (res.data.statusCode === 200) setSource(res.data.data);
             } catch (error) {
-                console.error("Location error:", error);
                 alert("Failed to get current city");
             } finally {
                 setLocLoading(false);
             }
-        }, (error) => {
+        }, () => {
             setLocLoading(false);
-            alert("Location access denied or unavailable");
+            alert("Location access denied");
         });
     };
 
-    // Fetch Vehicles
     const checkAvailability = async () => {
         if (!source || !dest) return alert("Please enter both locations");
         setLoading(true);
         setVehicles([]);
         try {
             const mobile = user?.mobile;
-            const res = await axios.get(`http://localhost:8080/availableVehicles?mobile=${mobile}&destination=${dest}`);
+            const res = await axios.get(`${API_BASE_URL}/availableVehicles?mobile=${mobile}&destination=${dest}`);
             if (res.data.statusCode === 200) {
                 const vehicleList = res.data.data?.vehicles || [];
                 setVehicles(vehicleList);
-                if (vehicleList.length === 0) {
-                    alert("No vehicles available in your area. Please try again later.");
-                }
+                if (vehicleList.length === 0) alert("No vehicles available");
             }
         } catch (error) {
-            console.error("Vehicle search error:", error);
-            const errorMessage = error.response?.data?.message || error.message || "Error fetching vehicles";
-            alert(`Failed to Fetch Vehicles: ${errorMessage}`);
+            alert("Error searching vehicles");
         } finally {
             setLoading(false);
         }
@@ -103,7 +94,6 @@ const UserHome = () => {
 
     const bookVehicle = async (vehicle) => {
         try {
-            const mobile = user?.mobile;
             const payload = {
                 sourceLocation: source,
                 destinationLocation: dest,
@@ -111,113 +101,306 @@ const UserHome = () => {
                 fare: vehicle.estimatedFare,
                 estimatedTime: Math.round(vehicle.estimatedTime) + " mins",
                 vehicleNumber: vehicle.vehicleNumber,
-                paymentMode: paymentMode // Include payment mode
+                paymentMode: paymentMode 
             };
-            const res = await axios.post(`http://localhost:8080/booking/bookvehicle?mobno=${mobile}`, payload);
+            const res = await axios.post(`${API_BASE_URL}/booking/bookvehicle?mobno=${user.mobile}`, payload);
             if (res.data.statusCode === 201 || res.data.statusCode === 200) {
                 setActiveRide(res.data.data);
                 setVehicles([]);
-                alert("Booking Successful!");
             }
         } catch (error) {
-            console.error(error);
-            const errorMessage = error.response?.data?.message || "Booking Failed";
-            alert(`Booking Failed: ${errorMessage}`);
+            alert("Booking Failed: " + (error.response?.data?.message || "Internal error"));
         }
     };
 
-    // Cancel ride by customer
     const handleCancelRide = async () => {
-        if (!activeRide) return;
-        if (!confirm("Are you sure you want to cancel this ride?")) return;
+        if (!activeRide || !confirm("Cancel this ride?")) return;
         try {
             const bookingId = activeRide.id || activeRide.bookingId;
-            await axios.post(`http://localhost:8080/customer/cancellRide?bookingId=${bookingId}`);
-            alert("Ride Cancelled Successfully!");
+            await axios.post(`${API_BASE_URL}/customer/cancelRide?bookingId=${bookingId}`);
             setActiveRide(null);
         } catch (e) {
-            const msg = e.response?.data?.message || e.message || "Cancel failed";
-            alert("Error: " + msg);
+            alert("Cancel failed");
         }
     };
 
-    // Get ride status
     const rideStatus = activeRide?.bookingStatus;
     const isRideBooked = rideStatus === 'BOOKED';
     const isRideOngoing = rideStatus === 'ONGOING';
     const isRideCompleted = rideStatus === 'COMPLETED';
 
-    return (
-        <div className="min-h-screen bg-gray-100 p-4">
-            {/* Brand Header */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-1.5">
-                    <img src={logo} alt="Go-Easy" className="h-12 w-auto object-contain mix-blend-multiply" />
-                    <h1 className="text-3xl font-black italic tracking-tighter flex items-center" style={{ fontFamily: "'Lexend', sans-serif" }}>
-                        <span className="text-[#2F3C8F]">Go</span>
-                        <span className="text-[#3E6FA6]">Easy</span>
-                    </h1>
-                </div>
-                <button
-                    onClick={() => { setShowProfile(true); fetchBookingHistory(); }}
-                    className="bg-[#5D5FEF] text-white px-5 py-2.5 rounded-full flex items-center gap-2 hover:bg-[#4B4DDF] transition shadow-lg shadow-indigo-100 font-bold"
-                >
-                    <User size={18} />
-                    Profile
-                </button>
-            </div>
+    const formatTime = (minutes) => {
+        if (!minutes) return "0m";
+        const h = Math.floor(minutes / 60);
+        const m = Math.round(minutes % 60);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    };
 
-            <h2 className="text-xl font-bold text-gray-800 mb-4 px-1">
-                {activeRide ? (
-                    isRideCompleted ? "Ride Completed" :
-                        isRideOngoing ? "Ride in Progress" : "Ride Booked"
-                ) : "Where to?"}
-            </h2>
+    return (
+        <div className="min-h-screen bg-[#0A0A0A] text-white selection:bg-[#F7D100] selection:text-black">
+            {/* Header */}
+            <header className="fixed top-0 left-0 right-0 z-40 bg-black/60 backdrop-blur-xl border-b border-white/5 px-4 h-16 sm:h-20 flex items-center justify-center">
+                <div className="w-full max-w-7xl flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <img src={logo} alt="Go-Easy" className="h-12 sm:h-14 w-auto object-contain" />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => { setShowProfile(true); fetchBookingHistory(); }}
+                            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/5 transition-all text-sm font-bold"
+                        >
+                            <User size={16} className="text-[#F7D100]" />
+                            <span className="hidden sm:inline">My History</span>
+                        </button>
+                        <button 
+                            onClick={() => { logout(); navigate('/'); }}
+                            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-xl border border-red-500/10 transition-all text-sm font-bold"
+                        >
+                            <LogOut size={16} />
+                            <span className="hidden sm:inline">Sign Out</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <main className="pt-24 sm:pt-32 pb-20 px-4 max-w-7xl mx-auto">
+                <div className="grid lg:grid-cols-12 gap-8 items-start">
+                    
+                    {/* LEFT AREA: Search & Progress */}
+                    <div className="lg:col-span-5 xl:col-span-4 space-y-6">
+                        {!activeRide ? (
+                            <div className="glass-card rounded-3xl p-6 sm:p-8 animate-fade-in">
+                                <h2 className="text-xl font-black uppercase tracking-widest mb-8 text-[#F7D100]">Book Your Ride</h2>
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Pick-Up Location</label>
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-[#F7D100]" size={16} />
+                                                    <input readOnly className="premium-input pl-12 text-sm" value={source || "Finding your location..."} />
+                                                </div>
+                                                <button onClick={handleGetCurrentLocation} disabled={locLoading} className="w-14 h-14 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-center hover:bg-[#F7D100]/10 transition-colors">
+                                                    {locLoading ? <div className="w-4 h-4 border-2 border-[#F7D100] border-t-transparent rounded-full animate-spin"></div> : <LocateFixed size={20} className="text-[#F7D100]" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Drop Location</label>
+                                            <div className="relative">
+                                                <Navigation className="absolute left-4 top-1/2 -translate-y-1/2 text-[#F7D100]" size={16} />
+                                                <input value={dest} onChange={(e) => setDest(e.target.value)} className="premium-input pl-12 text-sm" placeholder="Where do you want to go?" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+
+                                    <button onClick={checkAvailability} disabled={loading} className="premium-button w-full">
+                                        {loading ? "SEARCHING..." : "FIND AVAILABLE DRIVERS"}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="glass-card rounded-3xl p-8 relative overflow-hidden animate-fade-in border-[#F7D100]/20 shadow-[0_0_50px_rgba(247,209,0,0.05)]">
+                                <div className="relative z-10">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h3 className="text-xl font-black italic tracking-tighter">Current <span className="text-[#F7D100]">Ride</span></h3>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-gray-600 uppercase">Ride ID</p>
+                                            <p className="text-xs font-bold text-gray-400">#{activeRide.id || activeRide.bookingId}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-8 relative mb-10">
+                                        <div className="absolute left-[11px] top-6 bottom-6 w-[1px] bg-gradient-to-b from-[#F7D100] via-gray-800 to-gray-900 border-none"></div>
+                                        <div className="flex items-center relative z-10">
+                                            <div className="w-6 h-6 bg-black border-2 border-[#F7D100] rounded-full flex items-center justify-center mr-4">
+                                                <div className="w-1.5 h-1.5 bg-[#F7D100] rounded-full animate-pulse"></div>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-gray-600 font-black uppercase">Origin</p>
+                                                <p className="text-sm font-bold">{activeRide.sourceLocation}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center relative z-10">
+                                            <div className="w-6 h-6 bg-black border-2 border-gray-700 rounded-full flex items-center justify-center mr-4">
+                                                <MapPin size={10} className="text-gray-600" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-gray-600 font-black uppercase">Target</p>
+                                                <p className="text-sm font-bold">{activeRide.destinationLocation}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className={`p-6 rounded-[2rem] text-center mb-8 border transition-all ${isRideBooked ? 'bg-[#F7D100] text-black border-transparent shadow-xl' : 'bg-white/5 border-white/5'}`}>
+                                        {isRideBooked && (
+                                            <>
+                                                <p className="text-[10px] font-black uppercase tracking-widest mb-4 opacity-60">Start Ride OTP</p>
+                                                <p className="text-5xl font-black tracking-[0.3em] mb-4">{activeRide.startOtp || "----"}</p>
+                                                <p className="text-[10px] font-bold opacity-60 px-4">Give this OTP to your driver to start the ride.</p>
+                                            </>
+                                        )}
+                                        {isRideOngoing && (
+                                            <>
+                                                <div className="w-12 h-12 bg-[#F7D100]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <Car className="text-[#F7D100] animate-bounce" size={24} />
+                                                </div>
+                                                <p className="font-black text-xl italic tracking-tight mb-2">Driver is on the way</p>
+                                                <p className="text-sm text-gray-400">ETA: {activeRide.estimatedTime || "Recalculating..."}</p>
+                                                {activeRide.endOtp && (
+                                                    <div className="mt-6 pt-6 border-t border-white/5">
+                                                        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">End Ride OTP</p>
+                                                        <p className="text-3xl font-black tracking-widest text-[#F7D100]">{activeRide.endOtp}</p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        {isRideCompleted && (
+                                            <>
+                                                <p className="font-black text-xl italic tracking-tight mb-2">Arrival Success</p>
+                                                <p className="text-sm text-gray-500 mb-6">Movement sequence completed.</p>
+                                                <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                                                    <p className="text-[10px] font-black text-gray-500 uppercase">Total Fare Paid</p>
+                                                    <p className="text-4xl font-black text-[#F7D100]">₹{activeRide.fare}</p>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {isRideBooked && (
+                                        <button onClick={handleCancelRide} className="w-full flex items-center justify-center gap-2 text-gray-600 hover:text-red-500 text-[10px] font-black uppercase tracking-widest py-2 transition-colors">
+                                            <XCircle size={14} /> Cancel Ride
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT AREA: Find Drivers & Discovery */}
+                    <div className="lg:col-span-7 xl:col-span-8">
+                        {!activeRide && vehicles.length === 0 && (
+                            <div className="bg-white/5 border border-white/5 rounded-[3rem] p-12 text-center h-full flex flex-col items-center justify-center min-h-[400px]">
+                                <div className="w-20 h-20 bg-black rounded-3xl flex items-center justify-center mb-6 shadow-inner border border-white/5">
+                                    <Navigation className="text-gray-800" size={32} />
+                                </div>
+                                <h3 className="text-xl font-black text-gray-400 italic">No Ride Requested</h3>
+                                <p className="text-gray-600 text-sm mt-2 font-medium">Enter your drop location to find available drivers.</p>
+                            </div>
+                        )}
+
+                        {!activeRide && vehicles.length > 0 && (
+                            <div className="space-y-4 animate-fade-in">
+                                <div className="flex items-center justify-between mb-8 pl-2">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Available Drivers</h3>
+                                    <span className="bg-[#F7D100]/10 text-[#F7D100] px-3 py-1 rounded-full text-[10px] font-black border border-[#F7D100]/20">{vehicles.length} Drivers</span>
+                                </div>
+                                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                                    {vehicles.map((v) => (
+                                        <div key={v.vehicleNumber} className="glass-card p-6 rounded-[2rem] hover:border-[#F7D100]/30 transition-all group cursor-pointer" onClick={() => bookVehicle(v)}>
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div className="w-14 h-14 bg-black border border-white/5 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                    <Car className="text-[#F7D100]/60 group-hover:text-[#F7D100]" size={28} />
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-black text-gray-600 uppercase">Fare</p>
+                                                    <p className="text-2xl font-black tracking-tighter">₹{Math.round(v.estimatedFare)}</p>
+                                                </div>
+                                            </div>
+                                            <h4 className="text-lg font-black tracking-tight mb-2 italic">{v.model}</h4>
+                                            <div className="flex items-center gap-4 text-gray-500">
+                                                <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                    <Clock size={12} className="text-[#F7D100]" /> {formatTime(v.estimatedTime)}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                    <Navigation size={12} className="text-gray-400" /> {v.distance?.toFixed(1) || "5.0"} km
+                                                </div>
+                                            </div>
+                                            <button onClick={() => bookVehicle(v)} className="w-full mt-6 bg-white/5 border border-white/10 group-hover:bg-[#F7D100] group-hover:text-black py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                                BOOK RIDE
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeRide && (
+                            <div className="hidden lg:flex bg-white/5 border border-white/5 rounded-[3rem] h-full items-center justify-center min-h-[500px] text-center p-20 animate-fade-in relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-gradient-to-br from-[#F7D100]/5 to-transparent skew-y-12 translate-y-20 transition-transform group-hover:translate-y-10 duration-[2000ms]"></div>
+                                <div className="relative z-10">
+                                    <div className="w-32 h-32 bg-black rounded-[3rem] shadow-2xl flex items-center justify-center mx-auto mb-10 border border-[#F7D100]/20">
+                                        <div className="relative">
+                                            <Navigation size={48} className="text-[#F7D100] animate-pulse" />
+                                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#F7D100] rounded-full"></div>
+                                        </div>
+                                    </div>
+                                    <h2 className="text-3xl font-black italic tracking-tighter mb-4 uppercase">Sector Intelligence Active</h2>
+                                    <p className="text-gray-500 max-w-sm mx-auto font-medium leading-relaxed">The Go-Easy grid is tracking your unit's movement across the sector in real-time. Safety protocols fully engaged.</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
 
             {/* Profile Modal */}
             {showProfile && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
-                        <div className="bg-accent p-4 flex justify-between items-center">
-                            <h3 className="text-white font-bold text-lg">My Profile</h3>
-                            <button onClick={() => setShowProfile(false)} className="text-white">
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="glass-card rounded-[3rem] w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-[0_0_100px_rgba(247,209,0,0.1)]">
+                        <div className="bg-[#F7D100] p-8 sm:p-12 flex justify-between items-center shrink-0">
+                            <div>
+                                <h3 className="text-black font-black text-3xl italic tracking-tighter uppercase">Passenger Terminal</h3>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="text-black font-black text-[10px] uppercase tracking-widest bg-black/10 px-2 py-0.5 rounded">Verified ID</span>
+                                    <p className="text-black/60 text-xs font-bold font-mono tracking-tight">{user?.mobile}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowProfile(false)} className="bg-black/10 p-3 rounded-2xl hover:rotate-90 transition-all text-black">
                                 <X size={24} />
                             </button>
                         </div>
-                        <div className="p-4">
-                            {/* User Info */}
-                            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                        <div className="p-8 sm:p-12 overflow-y-auto custom-scrollbar flex-1">
+                            <div className="flex items-center justify-between mb-8">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center">
-                                        <User className="text-white" size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-lg">{user?.name || "Customer"}</p>
-                                        <p className="text-gray-500 text-sm">{user?.mobile}</p>
-                                    </div>
+                                    <History size={18} className="text-[#F7D100]" />
+                                    <h4 className="font-black uppercase tracking-[0.3em] text-[10px] text-gray-500">Service Logs</h4>
                                 </div>
+                                <span className="text-[10px] font-black text-[#F7D100] border border-[#F7D100]/30 px-3 py-1 rounded-full uppercase">{bookingHistory.length} Movement Actions</span>
                             </div>
 
-                            {/* Booking History */}
-                            <div className="flex items-center gap-2 mb-3">
-                                <History size={18} className="text-gray-500" />
-                                <h4 className="font-bold">Ride History</h4>
-                            </div>
-
-                            <div className="space-y-3 max-h-60 overflow-y-auto">
+                            <div className="space-y-4">
                                 {historyLoading ? (
-                                    <p className="text-center text-gray-500">Loading...</p>
+                                    <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-[#F7D100] border-t-transparent rounded-full animate-spin"></div></div>
                                 ) : bookingHistory.length === 0 ? (
-                                    <p className="text-center text-gray-500">No previous rides</p>
+                                    <div className="py-20 text-center opacity-30 flex flex-col items-center">
+                                        <XCircle size={40} className="mb-4" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest">No sector movement recorded</p>
+                                    </div>
                                 ) : (
                                     bookingHistory.map((ride, idx) => (
-                                        <div key={idx} className="bg-gray-50 rounded-lg p-3 border">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-sm font-medium">{ride.sourceLocation} → {ride.destinationLocation}</p>
-                                                    <p className="text-xs text-gray-500">{ride.distance} km • {ride.bookingStatus}</p>
+                                        <div key={idx} className="bg-white/5 border border-white/5 p-6 rounded-[2rem] hover:border-[#F7D100]/20 transition-all group">
+                                            <div className="flex justify-between items-center">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2 h-2 bg-[#F7D100] rounded-full"></div>
+                                                        <p className="text-xs font-bold text-gray-400">{ride.sourceLocation}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2 h-2 bg-gray-700 rounded-full"></div>
+                                                        <p className="text-xs font-bold text-gray-400">{ride.destinationLocation}</p>
+                                                    </div>
+                                                    <div className="pt-2 flex gap-4">
+                                                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{ride.distance} KM Vector</span>
+                                                        <span className="text-[9px] font-black text-[#F7D100] uppercase tracking-widest">{ride.bookingStatus}</span>
+                                                    </div>
                                                 </div>
-                                                <p className="font-bold text-accent">₹{Math.round(ride.fare)}</p>
+                                                <div className="text-right">
+                                                    <p className="text-2xl font-black italic tracking-tighter text-[#F7D100]">₹{Math.round(ride.fare)}</p>
+                                                    <p className="text-[9px] font-black text-gray-600 uppercase">Credits Transfered</p>
+                                                </div>
                                             </div>
                                         </div>
                                     ))
@@ -225,240 +408,6 @@ const UserHome = () => {
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Show Booking Form ONLY if no active ride */}
-            {!activeRide && (
-                <>
-                    <div className="bg-white p-6 rounded-xl shadow-md mb-6">
-                        <div className="relative">
-
-                            {/* Refined Pickup Selection */}
-                            <div className="mb-4">
-                                <div className="flex items-center gap-2">
-                                    <div className="relative flex-1 group">
-                                        <MapPin className="absolute left-3 top-4 text-accent" size={20} />
-                                        <div
-                                            className="w-full pl-10 pr-4 py-4 bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200 min-h-[56px] flex items-center"
-                                        >
-                                            <span className={`text-lg font-medium transition-colors ${source ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {source || "Set current location"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={handleGetCurrentLocation}
-                                        disabled={locLoading}
-                                        className="h-14 w-14 bg-accent/10 hover:bg-accent/20 text-2xl flex items-center justify-center rounded-xl transition-all border-2 border-accent/20 active:scale-95 shadow-sm"
-                                        title="Fetch Current Location"
-                                    >
-                                        {locLoading ? (
-                                            <div className="w-6 h-6 border-3 border-accent border-t-transparent rounded-full animate-spin"></div>
-                                        ) : (
-                                            "📍"
-                                        )}
-                                    </button>
-                                </div>
-                                <p className="text-[10px] text-gray-400 mt-1 ml-1 font-bold uppercase tracking-wider">Pickup Point</p>
-                            </div>
-
-                            <div className="relative">
-                                <Navigation className="absolute left-3 top-4 text-black" size={20} />
-                                <input
-                                    className="w-full pl-10 pr-4 py-4 bg-gray-50 rounded-xl border-2 border-gray-100 focus:border-black focus:ring-0 outline-none transition-all text-lg font-medium placeholder:text-gray-300"
-                                    placeholder="Where to?"
-                                    value={dest}
-                                    onChange={(e) => setDest(e.target.value)}
-                                />
-                                <p className="text-[10px] text-gray-400 mt-1 ml-1 font-bold uppercase tracking-wider">Destination</p>
-                            </div>
-                        </div>
-
-                        {/* Payment Mode Selection */}
-                        <div className="mt-6">
-                            <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3 ml-1">Payment Method</p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setPaymentMode('CASH')}
-                                    className={`flex-1 py-4 rounded-xl border-2 flex items-center justify-center gap-3 transition-all font-bold ${paymentMode === 'CASH'
-                                        ? 'border-accent bg-accent/5 text-accent shadow-sm'
-                                        : 'border-gray-50 bg-gray-50/50 text-gray-400'
-                                        }`}
-                                >
-                                    <Banknote size={20} />
-                                    Cash
-                                </button>
-                                <button
-                                    onClick={() => setPaymentMode('UPI')}
-                                    className={`flex-1 py-4 rounded-xl border-2 flex items-center justify-center gap-3 transition-all font-bold ${paymentMode === 'UPI'
-                                        ? 'border-accent bg-accent/5 text-accent shadow-sm'
-                                        : 'border-gray-50 bg-gray-50/50 text-gray-400'
-                                        }`}
-                                >
-                                    <CreditCard size={20} />
-                                    UPI
-                                </button>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={checkAvailability}
-                            className="w-full mt-6 bg-black text-white py-4 rounded-xl font-black uppercase tracking-widest hover:bg-gray-900 transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
-                        >
-                            {loading ? (
-                                <div className="flex items-center justify-center gap-2">
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    <span>Searching...</span>
-                                </div>
-                            ) : 'Find Vehicles'}
-                        </button>
-                    </div>
-
-                    {/* Vehicle List */}
-                    <div className="space-y-4 pb-20">
-                        {vehicles.map((v) => (
-                            <div key={v.vehicleNumber} className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex justify-between items-center border border-gray-100 group">
-                                <div className="flex items-center">
-                                    <div className="w-20 h-16 bg-gray-50 rounded-2xl mr-4 flex items-center justify-center group-hover:bg-accent/5 transition-colors">
-                                        <Car size={32} className="text-gray-400 group-hover:text-accent transition-colors" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-black text-xl tracking-tight text-gray-900">{v.model}</h3>
-                                        <div className="flex items-center text-gray-500 text-xs font-bold gap-4 mt-1">
-                                            <span className="flex items-center gap-1">
-                                                <Clock size={14} /> {Math.round(v.estimatedTime)}m
-                                            </span>
-                                            <span className="flex items-center gap-1 text-accent">
-                                                <Navigation size={14} /> {v.distance?.toFixed(1) || "5.0"} km
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="font-black text-2xl text-gray-900">₹{Math.round(v.estimatedFare)}</div>
-                                    <button
-                                        onClick={() => bookVehicle(v)}
-                                        className="mt-2 text-xs font-black uppercase tracking-wider bg-accent text-white px-6 py-2 rounded-full hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-100"
-                                    >
-                                        Book Now
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </>
-            )}
-
-            {/* Active Ride Panel */}
-            {activeRide && (
-                <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {/* Ride Status Badge */}
-                    <div className="flex justify-between items-center mb-6">
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${isRideCompleted ? 'bg-blue-50 text-blue-600' :
-                            isRideOngoing ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                            {isRideCompleted ? '🏁 Trip Finished' : isRideOngoing ? '🚗 In Route' : '⏳ Waiting for Driver'}
-                        </span>
-                        <span className="text-[10px] font-bold text-gray-300 uppercase tracking-tighter">ID: #{activeRide.id || activeRide.bookingId}</span>
-                    </div>
-
-                    {/* Route Info */}
-                    <div className="mb-8 space-y-6 relative">
-                        <div className="absolute left-[11px] top-6 bottom-6 w-0.5 bg-gray-50"></div>
-                        <div className="flex items-center relative z-10">
-                            <div className="w-6 h-6 bg-white border-2 border-emerald-500 rounded-full flex items-center justify-center mr-4">
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Pickup</p>
-                                <p className="font-black text-lg text-gray-900">{activeRide.sourceLocation}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center relative z-10">
-                            <div className="w-6 h-6 bg-white border-2 border-red-500 rounded-full flex items-center justify-center mr-4">
-                                <MapPin size={12} className="text-red-500" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Destination</p>
-                                <p className="font-black text-lg text-gray-900">{activeRide.destinationLocation}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Driver Info */}
-                    <div className="bg-gray-50 rounded-3xl p-5 mb-6 border border-gray-100">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-50">
-                                    <Car className="text-gray-300" size={28} />
-                                </div>
-                                <div>
-                                    <p className="font-black text-gray-900">{activeRide.vehicle?.driver?.dname || "Driver Partner"}</p>
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-tight">{activeRide.vehicle?.vehicleModel || "Vehicle"} • {activeRide.vehicle?.vehicleNumber}</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Fare</p>
-                                <p className="text-2xl font-black text-gray-900">₹{Math.round(activeRide.fare || 0)}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Start OTP Section - Only show if ride is BOOKED */}
-                    {isRideBooked && (
-                        <div className="bg-accent text-white rounded-3xl p-6 mb-6 text-center shadow-lg shadow-emerald-100 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
-                            <p className="text-xs font-black uppercase tracking-[0.2em] opacity-80 mb-3">Share OTP with Driver</p>
-                            <div className="text-5xl font-black tracking-[0.4em] text-white">
-                                {activeRide.startOtp || "----"}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Ride Started - Show End OTP when available */}
-                    {isRideOngoing && (
-                        <div className="bg-emerald-500 text-white rounded-3xl p-6 mb-6 text-center shadow-lg shadow-emerald-100">
-                            <p className="font-black text-xl uppercase tracking-tighter mb-2">Trip in Progress!</p>
-                            {activeRide.endOtp ? (
-                                <>
-                                    <p className="text-xs font-bold opacity-80 uppercase tracking-widest mt-4">END TRIP OTP</p>
-                                    <div className="text-4xl font-black tracking-[0.3em] mt-1">
-                                        {activeRide.endOtp}
-                                    </div>
-                                </>
-                            ) : (
-                                <p className="text-xs font-bold opacity-80 uppercase tracking-widest mt-2 animate-pulse">Enjoy your ride! Driver will request End OTP at destination.</p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Ride Completed - Payment Instruction */}
-                    {isRideCompleted && (
-                        <div className="bg-indigo-600 text-white rounded-3xl p-6 mb-6 text-center shadow-lg shadow-indigo-100">
-                            <p className="font-black text-xl uppercase tracking-tighter mb-1">Arrived safely!</p>
-                            <p className="text-xs font-bold opacity-80 mb-6 uppercase tracking-widest">Payment Instruction</p>
-
-                            <div className="bg-white/10 rounded-2xl p-4 inline-block mb-4">
-                                <p className="text-4xl font-black">₹{Math.round(activeRide.fare)}</p>
-                                <p className="text-[10px] font-black uppercase tracking-widest mt-1">Total via {activeRide.paymentMode || 'CASH'}</p>
-                            </div>
-
-                            <p className="text-xs font-bold opacity-60 animate-pulse italic tracking-tight">
-                                Awaiting driver's payment confirmation...
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Cancel Button - Only show if ride is BOOKED */}
-                    {isRideBooked && (
-                        <button
-                            onClick={handleCancelRide}
-                            className="w-full text-red-500 py-4 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <XCircle size={20} />
-                            Cancel Request
-                        </button>
-                    )}
                 </div>
             )}
         </div>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 180" fill="none">
+    <defs>
+        <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFEA66" />
+            <stop offset="50%" stop-color="#F7D100" />
+            <stop offset="100%" stop-color="#D49A00" />
+        </linearGradient>
+    </defs>
+    
+    <!-- Speed streaks behind car (showing rightward motion) -->
+    <path d="M 10 70 L 45 70 M 20 85 L 50 85 M 15 100 L 40 100" stroke="#F7D100" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- High-End Sleek Sports Car Silhouette (Facing Right) -->
+    <path d="
+        M 60,85
+        Q 65,65 85,55
+        Q 105,45 135,45
+        L 165,45
+        Q 220,50 265,75
+        Q 285,85 285,100
+        Q 285,105 275,105
+        L 250,105
+        A 22 22 0 0 0 206 105
+        L 124,105
+        A 22 22 0 0 0 80 105
+        L 60,105 Z" 
+        fill="url(#bodyGrad)" />
+        
+    <!-- Front Window Cutout -->
+    <path d="M 160,48 Q 210,52 235,68 L 160,68 Z" fill="#0A0A0A" />
+    
+    <!-- Rear Window Cutout -->
+    <path d="M 154,48 L 154,68 L 95,68 Q 110,54 135,48 Z" fill="#0A0A0A" />
+
+    <!-- Sharp Body Crease Detail -->
+    <path d="M 62,80 Q 165,75 268,75" stroke="#111111" stroke-width="2" fill="none" opacity="0.35" />
+
+    <!-- Headlight (White LED Glow) -->
+    <polygon points="262,78 282,85 280,94 260,86" fill="#FFFFFF" />
+    
+    <!-- Taillight (Red LED Strip) -->
+    <polygon points="60,85 65,85 65,98 60,98" fill="#FF2A00" />
+
+    <!-- Front Wheel Structure -->
+    <circle cx="228" cy="105" r="16" fill="#0A0A0A" />
+    <circle cx="228" cy="105" r="11" stroke="#4A4A4A" stroke-width="2" fill="none" />
+    <circle cx="228" cy="105" r="4" fill="#F7D100" />
+    <circle cx="228" cy="105" r="1.5" fill="#000000" />
+
+    <!-- Rear Wheel Structure -->
+    <circle cx="102" cy="105" r="16" fill="#0A0A0A" />
+    <circle cx="102" cy="105" r="11" stroke="#4A4A4A" stroke-width="2" fill="none" />
+    <circle cx="102" cy="105" r="4" fill="#F7D100" />
+    <circle cx="102" cy="105" r="1.5" fill="#000000" />
+
+    <!-- Brand Typography Centered Exactly Below Car -->
+    <text x="170" y="165" font-family="'Inter', 'Arial Black', sans-serif" font-size="48" font-weight="900" font-style="italic" text-anchor="middle" letter-spacing="1.5">
+       <tspan fill="#ffffff">Go</tspan><tspan fill="#F7D100">Easy</tspan>
+    </text>
+</svg>

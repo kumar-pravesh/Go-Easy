@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Car } from 'lucide-react';
-import logo from '../assets/logo.png';
+import logo from '../assets/logo.svg';
+import PublicNavbar from '../components/PublicNavbar';
+import Footer from '../components/Footer';
 
 const Login = () => {
     const [isDriver, setIsDriver] = useState(false);
@@ -25,74 +27,81 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
-            <div className="w-full max-w-sm flex flex-col items-center mb-6">
+        <div className="flex flex-col min-h-screen bg-[#0A0A0A]">
+            <PublicNavbar />
+            <main className="flex-grow flex flex-col items-center justify-center p-6 relative overflow-hidden mt-16 sm:mt-20">
+                {/* Minimalist Background Elements */}
+                <div className="absolute top-0 right-0 w-full h-full opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#F7D100 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }}></div>
+            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-[#F7D100]/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+            <div className="w-full max-w-md relative z-10 animate-fade-in">
                 {/* Logo Section */}
-                <div className="mb-8 transform hover:scale-105 transition-transform duration-300">
-                    <img src={logo} alt="Go-Easy" className="h-40 object-contain" />
+                <div className="flex flex-col items-center mb-12">
+                    <img src={logo} alt="Go-Easy" className="h-36 sm:h-40 w-auto mb-2 object-contain drop-shadow-2xl" />
+                    <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em] mt-3">Urban Mobility Partner</p>
                 </div>
 
-                {/* Toggle Buttons */}
-                <div className="w-full space-y-3 mb-8">
-                    <button
-                        onClick={() => setIsDriver(false)}
-                        className={`w-full py-3 rounded-xl font-bold transition-all border-2 flex items-center justify-center ${!isDriver ? 'bg-[#5D5FEF] text-white border-[#5D5FEF] shadow-lg shadow-indigo-200' : 'bg-white text-gray-500 border-gray-200 hover:border-[#5D5FEF] hover:text-[#5D5FEF]'}`}
-                    >
-                        Login as a Customer
-                    </button>
-                    <button
-                        onClick={() => setIsDriver(true)}
-                        className={`w-full py-3 rounded-xl font-bold transition-all border-2 flex items-center justify-center ${isDriver ? 'bg-[#5D5FEF] text-white border-[#5D5FEF] shadow-lg shadow-indigo-200' : 'bg-white text-gray-500 border-gray-200 hover:border-[#5D5FEF] hover:text-[#5D5FEF]'}`}
-                    >
-                        Login as a Driver
-                    </button>
-                </div>
-
-                {/* Divider/Connect */}
-                <div className="relative w-full flex items-center justify-center mb-8">
-                    <div className="absolute left-0 w-full h-px bg-gray-200"></div>
-                    <span className="bg-white px-4 text-sm text-gray-400 font-medium relative z-10">Sign In</span>
-                </div>
-
-                {/* Login Form */}
-                <form onSubmit={handleLogin} className="w-full space-y-5">
-                    <div>
-                        <input
-                            type="text"
-                            value={mobile}
-                            onChange={(e) => setMobile(e.target.value)}
-                            className="w-full bg-white text-gray-800 border-2 border-gray-100 rounded-xl py-3.5 px-4 focus:outline-none focus:border-[#5D5FEF] focus:ring-4 focus:ring-indigo-50 font-medium placeholder-gray-400 transition-all"
-                            placeholder="Mobile Number or Email"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-white text-gray-800 border-2 border-gray-100 rounded-xl py-3.5 px-4 focus:outline-none focus:border-[#5D5FEF] focus:ring-4 focus:ring-indigo-50 font-medium placeholder-gray-400 transition-all"
-                            placeholder="Password"
-                            required
-                        />
+                <div className="glass-card rounded-[2.5rem] p-8 md:p-10 border-white/5 shadow-2xl">
+                    {/* Role Toggle */}
+                    <div className="flex bg-black p-1.5 rounded-2xl mb-10 gap-2 border border-white/5">
+                        <button
+                            onClick={() => setIsDriver(false)}
+                            className={`flex-1 py-3.5 rounded-xl font-bold transition-all duration-300 ${!isDriver ? 'bg-[#F7D100] text-black shadow-lg shadow-[#F7D100]/20' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            Customer
+                        </button>
+                        <button
+                            onClick={() => setIsDriver(true)}
+                            className={`flex-1 py-3.5 rounded-xl font-bold transition-all duration-300 ${isDriver ? 'bg-[#F7D100] text-black shadow-lg shadow-[#F7D100]/20' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            Driver
+                        </button>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                        <a href="#" className="text-sm text-gray-400 hover:text-[#5D5FEF] font-medium transition-colors">Forgot password?</a>
-                    </div>
+                    {/* Login Form */}
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Mobile Number</label>
+                            <input
+                                type="text"
+                                value={mobile}
+                                onChange={(e) => setMobile(e.target.value)}
+                                className="premium-input"
+                                placeholder="Email or Mobile"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="premium-input"
+                                placeholder="••••••••"
+                                required
+                            />
+                        </div>
 
-                    <button type="submit" className="w-full bg-[#5D5FEF] hover:bg-[#4B4DDF] text-white font-bold py-4 rounded-xl transition-all shadow-xl shadow-indigo-200 flex items-center justify-center text-lg mt-4">
-                        Submit
-                    </button>
-                </form>
+                        <div className="flex justify-end pr-1">
+                            <a href="#" className="text-xs text-gray-500 hover:text-[#F7D100] font-bold tracking-tight transition-colors">Forgot Password?</a>
+                        </div>
 
-                <div className="mt-8 flex flex-col items-center space-y-4">
-                    <div className="flex items-center space-x-2">
-                        <span className="text-gray-500 font-medium">Don't have an account yet?</span>
+                        <button type="submit" className="premium-button w-full mt-4">
+                            LOG IN NOW
+                        </button>
+                    </form>
+
+                    <div className="mt-10 pt-8 border-t border-white/5 flex flex-col items-center gap-4">
+                        <p className="text-gray-500 text-sm font-medium">Don't have an account?</p>
+                        <Link to="/register" className="text-[#F7D100] font-black uppercase tracking-[0.1em] text-xs hover:text-white transition-all border-b border-[#F7D100]/30 pb-0.5">
+                            Sign Up Now
+                        </Link>
                     </div>
-                    <Link to="/register" className="text-[#5D5FEF] font-bold hover:underline">Sign up</Link>
                 </div>
             </div>
+            </main>
+            <Footer />
         </div>
     );
 };
