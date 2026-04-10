@@ -44,11 +44,11 @@ const Footer = () => {
                         <h4 className="text-lg font-black uppercase italic tracking-widest mb-2">Contact</h4>
                         <div className="flex items-start gap-3 text-[#888888] text-sm">
                             <MapPin size={18} className="text-[#F7D100] shrink-0 mt-0.5" />
-                            <span>124 GoEasy Tower, Tech District, Metro City, 452001</span>
+                            <span>GoEasy Bihar, India</span>
                         </div>
                         <div className="flex items-center gap-3 text-[#888888] text-sm">
                             <Phone size={18} className="text-[#F7D100] shrink-0" />
-                            <span>+91 98000 12345</span>
+                            <span>+91 9128521727</span>
                         </div>
                         <div className="flex items-center gap-3 text-[#888888] text-sm">
                             <Mail size={18} className="text-[#F7D100] shrink-0" />
@@ -60,10 +60,10 @@ const Footer = () => {
                 {/* Bottom Bar */}
                 <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <p className="text-[#888888] text-sm font-medium tracking-wide">
-                        &copy; {new Date().getFullYear()} GoEasy. All Rights Reserved.
+                        Copyright &copy; 2026 by <span className="text-[#F7D100] font-black">Pravesh Kumar</span> | All Rights Reserved
                     </p>
-                    <p className="text-xs text-[#666666] tracking-[0.2em] uppercase font-bold">
-                        Made by Pravesh
+                    <p className="text-sm text-[#888888] font-bold">
+                        Made with <span className="text-red-500">❤️</span> in India
                     </p>
                 </div>
             </div>
