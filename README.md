@@ -2,11 +2,10 @@
 
 Go-Easy is a premium, full-stack ride-hailing platform designed for seamless urban transportation. Built with a focus on speed, safety, and transparent pricing, it bridges the gap between passengers and drivers through a sleek, high-performance interface.
 
-<<<<<<< HEAD
+
 ![Go-Easy Banner](./banner.png)
-=======
-![Go-Easy Banner](https://go-easy-woad.vercel.app/).
->>>>>>> 73ac68ef95823353091fb20bf40e2bddfb36004f
+
+
 
 ## ✨ Key Features
 
