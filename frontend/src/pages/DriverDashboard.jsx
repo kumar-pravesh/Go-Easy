@@ -162,7 +162,7 @@ const DriverDashboard = () => {
     const handleCancelRide = async () => {
         if (!confirm("Cancel this ride?")) return;
         try {
-            await axios.put(`http://localhost:8080/driver/cancel/${activeRide.bookingId}`);
+            await axios.put(`${API_BASE_URL}/driver/cancel/${activeRide.bookingId}`);
             setActiveRide(null);
         } catch (e) {
             alert("Error cancelling");

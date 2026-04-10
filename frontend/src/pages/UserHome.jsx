@@ -24,7 +24,7 @@ const UserHome = () => {
         if (!user?.mobile) return;
         const fetchActiveRide = async () => {
             try {
-                const res = await axios.get(`http://localhost:8080/customer/activeBooking?mobNo=${user.mobile}`);
+                const res = await axios.get(`${API_BASE_URL}/customer/activeBooking?mobNo=${user.mobile}`);
                 const ride = res.data.data;
                 if (res.data.statusCode === 200 && ride && (ride.id || ride.bookingId)) {
                     setActiveRide(ride);
@@ -43,7 +43,7 @@ const UserHome = () => {
     const fetchBookingHistory = async () => {
         setHistoryLoading(true);
         try {
-            const res = await axios.get(`http://localhost:8080/customer/seeBookingHistory?mobNo=${user.mobile}`);
+            const res = await axios.get(`${API_BASE_URL}/customer/seeBookingHistory?mobNo=${user.mobile}`);
             if (res.data.statusCode === 200) {
                 setBookingHistory(res.data.data?.rlist || []);
             }
@@ -60,7 +60,7 @@ const UserHome = () => {
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
             try {
-                const res = await axios.get(`http://localhost:8080/customer/getCity?lat=${latitude}&lon=${longitude}`);
+                const res = await axios.get(`${API_BASE_URL}/customer/getCity?lat=${latitude}&lon=${longitude}`);
                 if (res.data.statusCode === 200) setSource(res.data.data);
             } catch (error) {
                 alert("Failed to get current city");

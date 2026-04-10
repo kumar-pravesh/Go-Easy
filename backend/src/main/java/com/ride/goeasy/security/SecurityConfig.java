@@ -42,10 +42,13 @@ public class SecurityConfig {
 	            corsConfiguration.setAllowedOriginPatterns(java.util.List.of(
 	                "http://localhost:5173", 
 	                "http://localhost:5174",
-	                "https://*.vercel.app"
+	                "https://*.vercel.app",
+	                "https://go-easy-woad.vercel.app"
 	            )); 
 	            corsConfiguration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-	            corsConfiguration.setAllowedHeaders(java.util.List.of("*"));
+	            corsConfiguration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+	            corsConfiguration.setExposedHeaders(java.util.List.of("Authorization"));
+	            corsConfiguration.setAllowCredentials(true);
 	            return corsConfiguration;
 	        })) 
 	        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
