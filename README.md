@@ -3,7 +3,7 @@
 Go-Easy is a premium, full-stack ride-hailing platform designed for seamless urban transportation. Built with a focus on speed, safety, and transparent pricing, it bridges the gap between passengers and drivers through a sleek, high-performance interface.
 
 
-![Go-Easy Banner](./banner.png)
+![Go-Easy Banner](./banner.png.png)
 
 
 
