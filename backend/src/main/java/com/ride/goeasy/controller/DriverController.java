@@ -73,9 +73,9 @@ public class DriverController {
 	}
 	
 	@PostMapping("/payByCash")
-	 public ResponseStructure<PaymentByCashDTO> confirmPaymentByCash(@RequestParam int bookingId, @RequestParam String paymentType){
-	    	return driverService.confirmPaymnetByCash(bookingId , paymentType);
-	    }
+	public ResponseStructure<PaymentByCashDTO> confirmPaymentByCash(@RequestParam int bookingId, @RequestParam String paymentType) {
+		return driverService.confirmPaymentByCash(bookingId, paymentType);
+	}
 	
 	
 	@PostMapping("/confirmUpiPayment")
@@ -97,6 +97,30 @@ public class DriverController {
 	@PutMapping("/status")
 	public ResponseStructure<String> updateStatus(@RequestParam long mobNo, @RequestParam String status) {
 		return driverService.updateDriverStatus(mobNo, status);
+	}
+
+	@PostMapping("/rate")
+	public ResponseStructure<String> rateDriver(@RequestParam int bookingId, @RequestParam double rating) {
+		return driverService.rateDriver(bookingId, rating);
+	}
+
+	/**
+	 * Admin / internal endpoint to update a driver's verification status.
+	 * field: AADHAAR | LICENSE | BACKGROUND
+	 */
+	@PostMapping("/respondRecording")
+	public ResponseStructure<String> respondRecording(@RequestParam int bookingId, @RequestParam boolean accept) {
+		return bookingService.respondRecording(bookingId, accept);
+	}
+
+	@PutMapping("/verify")
+	public ResponseStructure<String> updateVerification(
+			@RequestParam long mobNo,
+			@RequestParam String field,
+			@RequestParam boolean value,
+			@RequestParam(required = false) String cleanRecordDate) {
+		java.time.LocalDate date = cleanRecordDate != null ? java.time.LocalDate.parse(cleanRecordDate) : null;
+		return driverService.updateVerification(mobNo, field, value, date);
 	}
 
 }

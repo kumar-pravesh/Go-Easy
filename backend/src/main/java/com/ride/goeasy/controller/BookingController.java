@@ -44,8 +44,12 @@ public class BookingController {
 	  public ResponseStructure<String> completeRide(
 	          @RequestParam int bookingId,
 	          @RequestParam String otp) {
-
 	      return bookingService.completeRide(bookingId, otp);
+	  }
+
+	  @PostMapping("/requestRecording")
+	  public ResponseStructure<String> requestRecording(@RequestParam int bookingId) {
+	      return bookingService.requestRecording(bookingId);
 	  }
 
 	  

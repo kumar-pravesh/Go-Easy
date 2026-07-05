@@ -1,7 +1,6 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.svg';
-import { LogIn, UserPlus } from 'lucide-react';
+import { LogIn, UserPlus, Building2 } from 'lucide-react';
 
 const PublicNavbar = () => {
     return (
@@ -13,7 +12,14 @@ const PublicNavbar = () => {
             </div>
             
             <div className="flex items-center gap-4">
-                <Link 
+                <Link
+                    to="/corporate/login"
+                    className="hidden sm:flex items-center gap-2 text-gray-400 font-bold text-xs tracking-widest uppercase hover:text-[#F7D100] transition-colors"
+                >
+                    <Building2 size={16} />
+                    Corporate
+                </Link>
+                <Link
                     to="/login"
                     className="hidden sm:flex items-center gap-2 text-white font-bold text-sm tracking-wide hover:text-[#F7D100] transition-colors"
                 >

@@ -66,6 +66,11 @@ public class CustomerController {
 	    	return customerService.cancelRide(bookingId);
 	    }
 
+	@GetMapping("/scheduledRides")
+	public ResponseStructure<java.util.List<com.ride.goeasy.entity.Booking>> scheduledRides(@RequestParam long mobNo) {
+		return customerService.getScheduledRides(mobNo);
+	}
+
 	@GetMapping("/getCity")
 	public ResponseStructure<String> getCity(@RequestParam double lat, @RequestParam double lon) {
 		String city = customerService.getCityFromCoordinates(lat, lon);

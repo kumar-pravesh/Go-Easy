@@ -4,6 +4,8 @@ import com.ride.goeasy.enums.BookingStatus;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
@@ -52,8 +54,24 @@ public class Booking {
 	private Payment payment;
 
 	private String paymentMode; // CASH or UPI
-	
-	
+
+	private LocalDate rideDate;
+
+	// Recording consent — NONE | REQUESTED | ACCEPTED | ACTIVE | REJECTED | COMPLETED
+	@jakarta.persistence.Column(columnDefinition = "VARCHAR(20)")
+	private String recordingConsent = "NONE";
+	private LocalDateTime recordingRequestedAt;
+
+	// Scheduled ride fields — columnDefinition provides DEFAULT so ALTER TABLE succeeds on existing rows
+	@jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
+	private boolean scheduled = false;
+	private LocalDateTime scheduledTime;
+	@jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
+	private boolean fareLockedAtBooking = false;
+	@jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
+	private boolean scheduledNotifSent = false;
+
+
 
 	public String getStartOtp() {
 		return startOtp;
@@ -182,6 +200,27 @@ public class Booking {
 	public void setPaymentMode(String paymentMode) {
 		this.paymentMode = paymentMode;
 	}
+
+	public LocalDate getRideDate() { return rideDate; }
+	public void setRideDate(LocalDate rideDate) { this.rideDate = rideDate; }
+
+	public String getRecordingConsent() { return recordingConsent; }
+	public void setRecordingConsent(String recordingConsent) { this.recordingConsent = recordingConsent; }
+
+	public LocalDateTime getRecordingRequestedAt() { return recordingRequestedAt; }
+	public void setRecordingRequestedAt(LocalDateTime recordingRequestedAt) { this.recordingRequestedAt = recordingRequestedAt; }
+
+	public boolean isScheduled() { return scheduled; }
+	public void setScheduled(boolean scheduled) { this.scheduled = scheduled; }
+
+	public LocalDateTime getScheduledTime() { return scheduledTime; }
+	public void setScheduledTime(LocalDateTime scheduledTime) { this.scheduledTime = scheduledTime; }
+
+	public boolean isFareLockedAtBooking() { return fareLockedAtBooking; }
+	public void setFareLockedAtBooking(boolean fareLockedAtBooking) { this.fareLockedAtBooking = fareLockedAtBooking; }
+
+	public boolean isScheduledNotifSent() { return scheduledNotifSent; }
+	public void setScheduledNotifSent(boolean scheduledNotifSent) { this.scheduledNotifSent = scheduledNotifSent; }
 
 	public Booking(int id, Customer customer, Vehicle vehicle, String sourceLocation, String destinationLocation,
 			Double distance, Double fare, String estimatedTime, BookingStatus bookingStatus, boolean activeBookingFlag,

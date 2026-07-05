@@ -1,5 +1,3 @@
 package com.ride.goeasy.controller;
 
-public class PaymentController {
-
-}
+// Removed — payment logic lives in DriverController (payByCash, confirmUpiPayment, generateUpiQr)

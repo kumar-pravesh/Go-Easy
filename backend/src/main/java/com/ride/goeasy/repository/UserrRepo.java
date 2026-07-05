@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import com.ride.goeasy.entity.Userr;
 @Repository
 public interface UserrRepo extends JpaRepository<Userr, Integer> {
-	boolean existsByMobNo(long mobNo);
-	 Optional<Userr> findByMobNo(long mobNo);
+    boolean existsByMobNo(long mobNo);
+    Optional<Userr> findFirstByMobNo(long mobNo);
+    default Optional<Userr> findByMobNo(long mobNo) { return findFirstByMobNo(mobNo); }
 }

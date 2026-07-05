@@ -79,8 +79,11 @@ public class DriverService {
 		}
 
 		// 🔴 VALIDATION
-		if (userrRepo.existsByMobNo(driver.getMobNo())) {
+		if (userrRepo.existsByMobNo(driver.getMobNo()) || driverRepo.existsByMobNo(driver.getMobNo())) {
 			throw new RuntimeException("User with this mobile number already exists. Please Login.");
+		}
+		if (driver.getMailId() != null && driverRepo.existsByMailId(driver.getMailId())) {
+			throw new RuntimeException("An account with this email already exists. Please Login.");
 		}
 
 		if (vehicle.getLatitude() == null || vehicle.getLongitude() == null) {
@@ -232,7 +235,7 @@ public class DriverService {
 
 	// payment by cash
 
-	public ResponseStructure<PaymentByCashDTO> confirmPaymnetByCash(int bookingId, String paymentType) {
+	public ResponseStructure<PaymentByCashDTO> confirmPaymentByCash(int bookingId, String paymentType) {
 		return confirmPay(bookingId, paymentType);
 
 	}
@@ -429,6 +432,55 @@ public class DriverService {
 		rs.setMessage("UPI Payment Successful");
 		rs.setData(dto);
 
+		return rs;
+	}
+
+	/**
+	 * Updates a driver's verification flag.
+	 * field: AADHAAR | LICENSE | BACKGROUND
+	 * cleanRecordDate only required for BACKGROUND.
+	 */
+	public ResponseStructure<String> updateVerification(long mobNo, String field, boolean value, java.time.LocalDate cleanRecordDate) {
+		Driver d = driverRepo.findByMobNo(mobNo)
+				.orElseThrow(() -> new DriverNotFoundException("Driver not found: " + mobNo));
+
+		switch (field.toUpperCase()) {
+			case "AADHAAR"    -> d.setAadhaarVerified(value);
+			case "LICENSE"    -> d.setLicenseVerified(value);
+			case "BACKGROUND" -> {
+				d.setBackgroundCheckPassed(value);
+				if (value && cleanRecordDate != null) d.setCleanRecordSince(cleanRecordDate);
+			}
+			default -> throw new RuntimeException("Unknown field: " + field + ". Use AADHAAR | LICENSE | BACKGROUND");
+		}
+		d.recalculateTier();
+		driverRepo.save(d);
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Verification updated. New tier: " + d.getVerificationTier());
+		rs.setData(d.getVerificationTier());
+		return rs;
+	}
+
+	public ResponseStructure<String> rateDriver(int bookingId, double rating) {
+		if (rating < 1 || rating > 5) {
+			throw new RuntimeException("Rating must be between 1 and 5");
+		}
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new BookingNotFoundException("Booking not found"));
+		Driver d = b.getVehicle().getDriver();
+		double currentRating = d.getDriverRating() != null ? d.getDriverRating() : 0.0;
+		int total            = d.getTotalRatings() != null ? d.getTotalRatings() : 0;
+		double newRating     = (currentRating * total + rating) / (total + 1);
+		d.setDriverRating(Math.round(newRating * 10.0) / 10.0);
+		d.setTotalRatings(total + 1);
+		driverRepo.save(d);
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Driver rated successfully");
+		rs.setData("New rating: " + d.getDriverRating());
 		return rs;
 	}
 

@@ -15,6 +15,17 @@ public class BookingRequestDTO {
     // OPTIONAL but recommended:
     private String paymentMode;    // UPI, CASH, CARD
 
+    // null = immediate ride; non-null = scheduled ride (ISO-8601 string, e.g. "2025-06-15T09:30:00")
+    private String scheduledTime;
+
+    private boolean useCorporateWallet = false;
+
+    public boolean isUseCorporateWallet() { return useCorporateWallet; }
+    public void setUseCorporateWallet(boolean useCorporateWallet) { this.useCorporateWallet = useCorporateWallet; }
+
+	public String getScheduledTime() { return scheduledTime; }
+	public void setScheduledTime(String scheduledTime) { this.scheduledTime = scheduledTime; }
+
 	public String getSourceLocation() {
 		return sourceLocation;
 	}

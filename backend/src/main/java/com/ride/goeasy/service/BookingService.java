@@ -57,6 +57,9 @@ public class BookingService {
 	@Autowired
 	private OtpService otpService;
 
+	@Autowired
+	private com.ride.goeasy.service.CompanyService companyService;
+
 
 	public ResponseStructure<Booking> bookVehicle(long mobno, BookingRequestDTO bookingRequestDTO) {
 
@@ -129,10 +132,24 @@ public class BookingService {
 		b.setFare(bookingRequestDTO.getFare());
 		b.setDistance(bookingRequestDTO.getDistance());
 		b.setEstimatedTime(bookingRequestDTO.getEstimatedTime());
+		// Scheduled ride handling
+		boolean isScheduled = bookingRequestDTO.getScheduledTime() != null
+				&& !bookingRequestDTO.getScheduledTime().isBlank();
+		if (isScheduled) {
+			java.time.LocalDateTime scheduledAt = java.time.LocalDateTime.parse(bookingRequestDTO.getScheduledTime());
+			if (scheduledAt.isBefore(java.time.LocalDateTime.now().plusMinutes(30))) {
+				throw new RuntimeException("Scheduled time must be at least 30 minutes in the future.");
+			}
+			b.setScheduled(true);
+			b.setScheduledTime(scheduledAt);
+			b.setFareLockedAtBooking(true);
+		}
+
 		b.setBookingStatus(BookingStatus.BOOKED);
 		b.setPayment(p);
 		b.setActiveBookingFlag(true);
-		b.setPaymentMode(bookingRequestDTO.getPaymentMode()); // Save payment mode
+		b.setPaymentMode(bookingRequestDTO.getPaymentMode());
+		b.setRideDate(java.time.LocalDate.now());
 		cust.getBookings().add(b);
 		Driver d = vehicle.getDriver();
 
@@ -143,8 +160,10 @@ public class BookingService {
 		
 		d.getDblist().add(b);
 		
-		// Update Vehicle Status to prevent double booking!
-		vehicle.setAvlStatus("ON_RIDE");
+		// For immediate rides: lock vehicle now. For scheduled: lock 30 min before via scheduler.
+		if (!isScheduled) {
+			vehicle.setAvlStatus("ON_RIDE");
+		}
 		
 		
 		// ===== START OTP GENERATION =====
@@ -162,6 +181,15 @@ public class BookingService {
 		  + "– GoEasy Team"
 		);
 
+
+		// Corporate wallet deduction (best-effort, does not block booking)
+		if (bookingRequestDTO.isUseCorporateWallet() && b.getFare() != null) {
+			try {
+				companyService.deductCorporateFare(cust, b.getFare());
+			} catch (Exception e) {
+				System.err.println("Corporate wallet deduction failed: " + e.getMessage());
+			}
+		}
 
 		// STEP 6: Save
 		Booking savedBooking = bookingRepo.save(b);
@@ -205,6 +233,7 @@ public class BookingService {
 			rdto.setBookingStatus(b.getBookingStatus().name());
 			rdto.setDistance(b.getDistance());
 			rdto.setFare(b.getFare());
+			rdto.setRideDate(b.getRideDate());
 			totalAmount += b.getFare();
 			list.add(rdto);
 		}
@@ -434,6 +463,67 @@ public class BookingService {
 	    return rs;
 	}
 
+	// ===================== RECORDING CONSENT =====================
 
+	public ResponseStructure<String> requestRecording(int bookingId) {
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found"));
 
+		if (!BookingStatus.BOOKED.equals(b.getBookingStatus()) &&
+			!BookingStatus.ONGOING.equals(b.getBookingStatus())) {
+			throw new RuntimeException("Recording can only be requested during an active ride.");
+		}
+		if (!"NONE".equals(b.getRecordingConsent())) {
+			throw new RuntimeException("Recording consent already requested.");
+		}
+
+		b.setRecordingConsent("REQUESTED");
+		b.setRecordingRequestedAt(java.time.LocalDateTime.now());
+		bookingRepo.save(b);
+
+		try {
+			mailService.sendMail(
+				b.getVehicle().getDriver().getMailId(),
+				"Recording Consent Request — GoEasy",
+				"Passenger " + b.getCustomer().getName() + " has requested to audio-record this ride for safety.\n"
+			  + "Both parties must consent. Please respond via the app.\n"
+			  + "Recording is stored for 24 hrs, then auto-deleted.\n\n– GoEasy Team"
+			);
+		} catch (Exception ignored) {}
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Recording consent requested. Waiting for driver approval.");
+		rs.setData("REQUESTED");
+		return rs;
+	}
+
+	public ResponseStructure<String> respondRecording(int bookingId, boolean accept) {
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found"));
+
+		if (!"REQUESTED".equals(b.getRecordingConsent())) {
+			throw new RuntimeException("No pending recording request for this booking.");
+		}
+
+		b.setRecordingConsent(accept ? "ACTIVE" : "REJECTED");
+		bookingRepo.save(b);
+
+		if (accept) {
+			try {
+				mailService.sendMail(
+					b.getCustomer().getEmail(),
+					"Recording Consent Accepted — GoEasy",
+					"Your driver accepted the safety recording request.\n"
+				  + "The recording is stored securely for 24 hours and permanently deleted after.\n\n– GoEasy Team"
+				);
+			} catch (Exception ignored) {}
+		}
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage(accept ? "Recording is ACTIVE. Stored 24 hrs, then auto-deleted." : "Driver declined recording.");
+		rs.setData(b.getRecordingConsent());
+		return rs;
+	}
 }

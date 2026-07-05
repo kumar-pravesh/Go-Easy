@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Car, MapPin, Navigation, CheckCircle, Smartphone, Banknote, QrCode, XCircle, History, User, X, LogOut } from 'lucide-react';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { cacheActiveRide, clearCachedRide, getCachedRide } from '../utils/offlineStorage';
+import { Car, MapPin, Navigation, CheckCircle, Smartphone, Banknote, QrCode, XCircle, User, X, LogOut, TrendingUp } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
 import { useNavigate } from 'react-router-dom';
@@ -22,19 +24,29 @@ const DriverDashboard = () => {
     const [totalEarnings, setTotalEarnings] = useState(0);
     const [totalTrips, setTotalTrips] = useState(0);
 
-    const driverMobile = user?.mobile || 9000000001;
+    const driverMobile = user?.mobile;
+    const isOnline     = useOnlineStatus();
+
+    useEffect(() => {
+        // Restore cached ride so OTPs are visible even while offline
+        const cached = getCachedRide();
+        if (cached) setActiveRide(cached);
+    }, []);
 
     useEffect(() => {
         const fetchActiveBooking = async () => {
+            if (!isOnline) return; // skip polling when offline — use cached data
             try {
                 const res = await axios.get(`${API_BASE_URL}/driver/activeBooking?mobNo=${driverMobile}`);
                 const ride = res.data.data;
                 if (res.data.statusCode === 200 && ride && (ride.id || ride.bookingId)) {
                     if (ride.id && !ride.bookingId) ride.bookingId = ride.id;
                     setActiveRide(ride);
+                    cacheActiveRide(ride);
                 } else {
                     setActiveRide(null);
                     setShowPayment(false);
+                    clearCachedRide();
                 }
             } catch (error) {
                 console.log("No active rides");
@@ -169,6 +181,25 @@ const DriverDashboard = () => {
         }
     };
 
+    const handleRespondRecording = async (accept) => {
+        try {
+            await axios.post(`${API_BASE_URL}/driver/respondRecording?bookingId=${activeRide.bookingId}&accept=${accept}`);
+        } catch (e) {
+            alert("Failed to respond to recording request");
+        }
+    };
+
+    const groupByMonth = (rides) => {
+        const groups = {};
+        rides.forEach((r) => {
+            const key = r.rideDate ? r.rideDate.substring(0, 7) : 'Earlier';
+            if (!groups[key]) groups[key] = { label: key, rides: [], total: 0 };
+            groups[key].rides.push(r);
+            groups[key].total += r.fare || 0;
+        });
+        return Object.values(groups).sort((a, b) => b.label.localeCompare(a.label));
+    };
+
     return (
         <div className="min-h-screen bg-[#0A0A0A] text-white selection:bg-[#F7D100] selection:text-black">
             {/* Header */}
@@ -201,6 +232,13 @@ const DriverDashboard = () => {
                     </div>
                 </div>
             </header>
+
+            {/* Offline banner — isOnline from useOnlineStatus, cached data from offlineStorage */}
+            {!isOnline && (
+                <div className="fixed top-16 sm:top-20 left-0 right-0 z-30 bg-orange-500/90 backdrop-blur text-black text-center text-[10px] font-black uppercase tracking-widest py-2 px-4">
+                    📡 Offline — OTPs loaded from cache. Actions will sync when reconnected.
+                </div>
+            )}
 
             <main className="pt-24 sm:pt-32 pb-20 px-4 max-w-7xl mx-auto">
                 <div className="grid lg:grid-cols-12 gap-8">
@@ -331,8 +369,11 @@ const DriverDashboard = () => {
                                                 <User className="text-[#F7D100]" size={20} />
                                             </div>
                                             <div>
-                                                <p className="font-black text-lg italic tracking-tight mb-1">{activeRide.customer?.name || "Customer"}</p>
-                                                <p className="text-[10px] font-mono font-bold text-gray-500 uppercase">{activeRide.customer?.mobile || "ID #X99"}</p>
+                                                <p className="font-black text-lg italic tracking-tight mb-1">{activeRide.customer?.name || 'Customer'}</p>
+                                                <p className="text-[10px] font-mono font-bold text-gray-500 uppercase">{activeRide.customer?.mobno || activeRide.customer?.mobile || '—'}</p>
+                                                {activeRide.customer?.gender && (
+                                                    <p className="text-[9px] font-black text-gray-600 uppercase mt-0.5">{activeRide.customer.gender}</p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -352,6 +393,22 @@ const DriverDashboard = () => {
                                                 />
                                                 <button onClick={handleStartRide} disabled={loading} className="premium-button px-12 py-5 sm:py-0">START RIDE</button>
                                             </div>
+                                            {/* Recording consent prompt */}
+                                            {activeRide.recordingConsent === 'REQUESTED' && (
+                                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4">
+                                                    <p className="text-[10px] font-black text-blue-400 uppercase mb-3">🎙 Passenger Requests Safety Recording</p>
+                                                    <p className="text-[9px] text-gray-500 mb-4">Audio stored 24 hrs then auto-deleted. Both parties must consent.</p>
+                                                    <div className="flex gap-3">
+                                                        <button onClick={() => handleRespondRecording(false)} className="flex-1 bg-white/5 border border-white/10 py-2.5 rounded-xl text-[9px] font-black uppercase text-red-400 hover:bg-red-500/10 transition-all">Decline</button>
+                                                        <button onClick={() => handleRespondRecording(true)} className="flex-[2] bg-blue-500/20 border border-blue-500/30 py-2.5 rounded-xl text-[9px] font-black uppercase text-blue-300 hover:bg-blue-500/30 transition-all">Accept Recording</button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {activeRide.recordingConsent === 'ACTIVE' && (
+                                                <div className="flex items-center justify-center gap-2 text-[9px] font-black text-red-400 uppercase py-2 animate-pulse">
+                                                    🔴 Recording Active · Auto-deleted in 24h
+                                                </div>
+                                            )}
                                             <button onClick={handleCancelRide} className="w-full text-center text-red-500/40 hover:text-red-500 transition-colors text-[9px] font-black uppercase tracking-widest">Cancel Ride</button>
                                         </div>
                                     ) : (
@@ -393,15 +450,25 @@ const DriverDashboard = () => {
                             </button>
                         </div>
                         <div className="p-10 overflow-y-auto custom-scrollbar flex-1">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="flex items-center gap-3">
-                                    <History size={18} className="text-[#F7D100]" />
-                                    <h4 className="font-black uppercase tracking-[0.3em] text-[10px] text-gray-600">Ride History</h4>
+                            {/* Stats bar */}
+                            <div className="flex border-b border-white/5 mb-8 -mx-10 px-10">
+                                <div className="flex-1 pb-6 text-center border-r border-white/5">
+                                    <p className="text-[9px] font-black text-gray-600 uppercase">Total Trips</p>
+                                    <p className="text-2xl font-black">{bookingHistory.length}</p>
                                 </div>
-                                <span className="text-[10px] font-black text-[#F7D100] border border-[#F7D100]/30 px-3 py-1 rounded-full uppercase">{bookingHistory.length} Rides</span>
+                                <div className="flex-1 pb-6 text-center">
+                                    <p className="text-[9px] font-black text-[#F7D100] uppercase">Total Earned</p>
+                                    <p className="text-2xl font-black text-[#F7D100]">₹{Math.round(bookingHistory.reduce((s, r) => s + (r.fare || 0), 0))}</p>
+                                </div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-6">
+                                <TrendingUp size={16} className="text-[#F7D100]" />
+                                <h4 className="font-black uppercase tracking-[0.3em] text-[10px] text-gray-600">Earnings by Month</h4>
+                                <span className="ml-auto text-[10px] font-black text-[#F7D100] border border-[#F7D100]/30 px-3 py-1 rounded-full uppercase">{bookingHistory.length} Rides</span>
+                            </div>
+
+                            <div className="space-y-6">
                                 {historyLoading ? (
                                     <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-[#F7D100] border-t-transparent rounded-full animate-spin"></div></div>
                                 ) : bookingHistory.length === 0 ? (
@@ -410,27 +477,34 @@ const DriverDashboard = () => {
                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-700">No history found</p>
                                     </div>
                                 ) : (
-                                    bookingHistory.map((ride, idx) => (
-                                        <div key={idx} className="bg-white/5 border border-white/5 p-8 rounded-[2rem] hover:border-[#F7D100]/20 transition-all group">
-                                            <div className="flex justify-between items-center">
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-2 h-2 bg-[#F7D100] rounded-full"></div>
-                                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-tight">{ride.sourceLocation}</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-2 h-2 bg-gray-800 rounded-full"></div>
-                                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-tight">{ride.destinationLocation}</p>
-                                                    </div>
-                                                    <div className="pt-2 flex gap-4">
-                                                        <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest">{ride.distance} KM TOTAL</span>
-                                                        <span className="text-[9px] font-black text-[#F7D100] uppercase tracking-widest">{ride.bookingStatus}</span>
-                                                    </div>
+                                    groupByMonth(bookingHistory).map((group) => (
+                                        <div key={group.label}>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{group.label}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[9px] font-black text-gray-600">{group.rides.length} rides</span>
+                                                    <span className="text-[9px] font-black text-[#F7D100]">₹{Math.round(group.total)}</span>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-3xl font-black italic tracking-tighter mb-1">₹{Math.round(ride.fare)}</p>
-                                                    <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Paid</p>
-                                                </div>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {group.rides.map((ride, idx) => (
+                                                    <div key={idx} className="bg-white/5 border border-white/5 p-5 rounded-[1.5rem] hover:border-[#F7D100]/20 transition-all">
+                                                        <div className="flex justify-between items-center">
+                                                            <div className="space-y-2">
+                                                                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-[#F7D100] rounded-full"></div><p className="text-xs font-bold text-gray-500">{ride.sourceLocation}</p></div>
+                                                                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-gray-800 rounded-full"></div><p className="text-xs font-bold text-gray-500">{ride.destinationLocation}</p></div>
+                                                                <div className="flex gap-3 pt-1">
+                                                                    <span className="text-[9px] font-black text-gray-700 uppercase">{ride.distance} km</span>
+                                                                    <span className="text-[9px] font-black text-[#F7D100] uppercase">{ride.bookingStatus}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-2xl font-black italic tracking-tighter mb-1">₹{Math.round(ride.fare)}</p>
+                                                                <p className="text-[9px] font-black text-gray-600 uppercase">Earned</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     ))

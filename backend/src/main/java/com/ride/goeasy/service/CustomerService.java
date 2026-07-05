@@ -75,8 +75,11 @@ public class CustomerService {
 
 	public ResponseStructure<CustomerResponseDTO> saveCustomer(CustomerDTO dto) {
 
-		if (userrRepo.existsByMobNo(dto.getMobno())) {
+		if (userrRepo.existsByMobNo(dto.getMobno()) || customerRepo.existsByMobno(dto.getMobno())) {
 			throw new RuntimeException("User with this mobile number already exists. Please Login.");
+		}
+		if (customerRepo.existsByEmail(dto.getEmail())) {
+			throw new RuntimeException("An account with this email already exists. Please Login.");
 		}
 
 		Customer c = new Customer();
@@ -220,16 +223,11 @@ public class CustomerService {
 		c.setActiveBookingFlag(false);
 		b.setActiveBookingFlag(false);
 		b.setBookingStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
-		
-//		cancellation mail
-		mailService.sendRideCancellationMail(
-			    c.getEmail(),
-			    String.valueOf(b.getId())
-			);
 
-		
-		
+		mailService.sendRideCancellationMail(c.getEmail(), String.valueOf(b.getId()));
+
 		d.setDstatus("AVAILABLE");
+		v.setAvlStatus("AVAILABLE"); // BUG FIX: vehicle was never freed on customer cancel
 		Payment p = b.getPayment();
 
 		int count = c.getCancellationCount() + 1;
@@ -260,6 +258,18 @@ public class CustomerService {
 		rs.setMessage("Booking Cancel Request Accepted");
 		rs.setData("Booking cancelled by customer");
 
+		return rs;
+	}
+
+	public ResponseStructure<java.util.List<Booking>> getScheduledRides(long mobNo) {
+		Customer c = customerRepo.findByMobno(mobNo)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer not found: " + mobNo));
+		java.util.List<Booking> scheduled = br.findByCustomerMobnoAndScheduledTrueAndBookingStatus(
+				c.getMobno(), com.ride.goeasy.enums.BookingStatus.BOOKED);
+		ResponseStructure<java.util.List<Booking>> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Scheduled rides fetched");
+		rs.setData(scheduled);
 		return rs;
 	}
 

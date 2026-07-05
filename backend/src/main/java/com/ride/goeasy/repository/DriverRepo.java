@@ -12,7 +12,11 @@ import com.ride.goeasy.entity.Driver;
 public interface DriverRepo extends JpaRepository<Driver, Integer>{
 	 List<Driver> findByDstatus(String dstatus);  // To fetch only available drivers
 
-	 Optional<Driver> findByMobNo(long mobNo);
+    Optional<Driver> findFirstByMobNo(long mobNo);
+    Optional<Driver> findFirstByMailId(String mailId);
+    boolean existsByMobNo(long mobNo);
+    boolean existsByMailId(String mailId);
 
-	 Optional<Driver> findByMailId(String mailId);
+    default Optional<Driver> findByMobNo(long mobNo) { return findFirstByMobNo(mobNo); }
+    default Optional<Driver> findByMailId(String mailId) { return findFirstByMailId(mailId); }
 }

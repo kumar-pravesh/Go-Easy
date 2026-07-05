@@ -33,6 +33,40 @@ public class Driver {
     
     private Integer dailyCancelCount = 0;
     private java.time.LocalDate lastCancelDate;
+
+    // ANY / SILENT / FRIENDLY
+    @jakarta.persistence.Column(columnDefinition = "VARCHAR(20)")
+    private String ridePreference = "ANY";
+
+    // BRONZE / SILVER / GOLD  — auto-recalculated on verification changes
+    @jakarta.persistence.Column(columnDefinition = "VARCHAR(20)")
+    private String verificationTier = "BRONZE";
+
+    // Verification document flags
+    @jakarta.persistence.Column(columnDefinition = "boolean DEFAULT true")
+    private boolean mobileVerified = true;
+    @jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
+    private boolean aadhaarVerified = false;
+    @jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
+    private boolean licenseVerified = false;
+    @jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
+    private boolean backgroundCheckPassed = false;
+    private java.time.LocalDate cleanRecordSince; // set when background check passes
+
+    private Double driverRating = 0.0;
+    private Integer totalRatings = 0;
+
+    // Auto-calculates tier from verification flags
+    public void recalculateTier() {
+        if (backgroundCheckPassed && cleanRecordSince != null
+                && java.time.LocalDate.now().minusMonths(6).isBefore(cleanRecordSince) == false) {
+            this.verificationTier = "GOLD";
+        } else if (aadhaarVerified && licenseVerified) {
+            this.verificationTier = "SILVER";
+        } else {
+            this.verificationTier = "BRONZE";
+        }
+    }
     
 
     @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL)
@@ -183,6 +217,53 @@ public class Driver {
 	public void setLastCancelDate(java.time.LocalDate lastCancelDate) {
 		this.lastCancelDate = lastCancelDate;
 	}
+
+	public String getRidePreference() {
+		return ridePreference;
+	}
+
+	public void setRidePreference(String ridePreference) {
+		this.ridePreference = ridePreference;
+	}
+
+	public String getVerificationTier() {
+		return verificationTier;
+	}
+
+	public void setVerificationTier(String verificationTier) {
+		this.verificationTier = verificationTier;
+	}
+
+	public Double getDriverRating() {
+		return driverRating;
+	}
+
+	public void setDriverRating(Double driverRating) {
+		this.driverRating = driverRating;
+	}
+
+	public Integer getTotalRatings() {
+		return totalRatings;
+	}
+
+	public void setTotalRatings(Integer totalRatings) {
+		this.totalRatings = totalRatings;
+	}
+
+	public boolean isMobileVerified() { return mobileVerified; }
+	public void setMobileVerified(boolean mobileVerified) { this.mobileVerified = mobileVerified; }
+
+	public boolean isAadhaarVerified() { return aadhaarVerified; }
+	public void setAadhaarVerified(boolean aadhaarVerified) { this.aadhaarVerified = aadhaarVerified; }
+
+	public boolean isLicenseVerified() { return licenseVerified; }
+	public void setLicenseVerified(boolean licenseVerified) { this.licenseVerified = licenseVerified; }
+
+	public boolean isBackgroundCheckPassed() { return backgroundCheckPassed; }
+	public void setBackgroundCheckPassed(boolean backgroundCheckPassed) { this.backgroundCheckPassed = backgroundCheckPassed; }
+
+	public java.time.LocalDate getCleanRecordSince() { return cleanRecordSince; }
+	public void setCleanRecordSince(java.time.LocalDate cleanRecordSince) { this.cleanRecordSince = cleanRecordSince; }
 
     @Override
     public String toString() {

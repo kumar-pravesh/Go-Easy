@@ -1,0 +1,13 @@
+{
+  "name": "Go-Easy",
+  "short_name": "GoEasy",
+  "description": "Book rides with Go-Easy. Works offline too.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#F7D100",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/vite.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

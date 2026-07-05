@@ -31,6 +31,10 @@ public class Vehicle {
 	@Column(nullable = true)
 	private Double avgspeed;
 
+	// PETROL / DIESEL / CNG / ELECTRIC
+	@Column(columnDefinition = "VARCHAR(20)")
+	private String fuelType = "PETROL";
+
 	@OneToOne
 	@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"vehicle", "dblist", "userr"})
 	@JoinColumn(name = "driver_id", nullable = false)
@@ -161,6 +165,14 @@ public class Vehicle {
 
 	public void setDriver(Driver driver) {
 		this.driver = driver;
+	}
+
+	public String getFuelType() {
+		return fuelType;
+	}
+
+	public void setFuelType(String fuelType) {
+		this.fuelType = fuelType;
 	}
 
 }

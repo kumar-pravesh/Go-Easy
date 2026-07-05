@@ -4,7 +4,10 @@ import Register from './pages/Register';
 import UserHome from './pages/UserHome';
 import DriverDashboard from './pages/DriverDashboard';
 import LandingPage from './pages/LandingPage';
+import CorporateLogin from './pages/CorporateLogin';
+import CorporateDashboard from './pages/CorporateDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const ProtectedRoute = ({ children, role }) => {
   const { user, role: userRole } = useAuth();
@@ -17,6 +20,7 @@ const ProtectedRoute = ({ children, role }) => {
 
 function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -32,8 +36,11 @@ function App() {
             <DriverDashboard />
           </ProtectedRoute>
         } />
+        <Route path="/corporate/login"     element={<CorporateLogin />} />
+        <Route path="/corporate/dashboard" element={<CorporateDashboard />} />
       </Routes>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

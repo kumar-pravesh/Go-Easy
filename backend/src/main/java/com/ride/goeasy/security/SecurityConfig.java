@@ -60,6 +60,7 @@ public class SecurityConfig {
 	                    "/registercustomerwithpwd",
 	                    "/newtoken",
 	                    "/driver/save",
+                    "/corporate/**",
 	                    "/driver/generateUpiQr/**"
 	                ).permitAll()
 
@@ -70,8 +71,9 @@ public class SecurityConfig {
 	                ).hasRole("CUSTOMER")
 	                
 	                .requestMatchers(
-	                    "/booking/**"
-	                ).authenticated() // Both Drivers and Customers need access to booking endpoints
+	                    "/booking/**",
+                    "/driver/rate"
+	                ).authenticated() // Customers and drivers both need access
 
 	                // 🚖 DRIVER
 	                .requestMatchers("/driver/**")

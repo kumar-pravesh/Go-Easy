@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import com.ride.goeasy.dto.LoginRequestDTO;
@@ -54,7 +55,7 @@ public class AuthController {
             } else {
                 // Then try Driver
                 Driver driver = driverRepo.findByMailId(identifier)
-                        .orElseThrow(() -> new RuntimeException("User not found with email: " + identifier));
+                        .orElseThrow(() -> new UsernameNotFoundException("No account found for: " + identifier));
                 finalMobNo = String.valueOf(driver.getMobNo());
                 userName = driver.getDname();
             }
@@ -83,7 +84,7 @@ public class AuthController {
         );
 
         Userr user = userrRepo.findByMobNo(Long.parseLong(finalMobNo))
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         String token = jwtUtils.generateToken(
         	    String.valueOf(user.getMobNo()),

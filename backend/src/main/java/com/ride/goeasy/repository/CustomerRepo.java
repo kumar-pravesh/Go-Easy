@@ -9,8 +9,14 @@ import com.ride.goeasy.entity.Customer;
 
 @Repository
 public interface CustomerRepo extends JpaRepository<Customer, Integer> {
-	 // Custom method to find a customer by mobile number
-    Optional<Customer> findByMobno(Long mobno);
+    // findFirst guards against duplicate rows from past registrations
+    Optional<Customer> findFirstByMobno(Long mobno);
+    Optional<Customer> findFirstByEmail(String email);
 
-    Optional<Customer> findByEmail(String email);
+    boolean existsByEmail(String email);
+    boolean existsByMobno(Long mobno);
+
+    // keep old names as delegates so callers compile without changes
+    default Optional<Customer> findByMobno(Long mobno) { return findFirstByMobno(mobno); }
+    default Optional<Customer> findByEmail(String email) { return findFirstByEmail(email); }
 }

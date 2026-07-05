@@ -2,6 +2,11 @@ package com.ride.goeasy.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -37,20 +42,41 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(rs, HttpStatus.BAD_REQUEST);
     }
 
+    // Spring Security auth failures → 401, never 500
+    @ExceptionHandler({
+        AuthenticationException.class,
+        BadCredentialsException.class,
+        UsernameNotFoundException.class,
+        DisabledException.class,
+        LockedException.class
+    })
+    public ResponseEntity<ResponseStructure<String>> handleAuthException(RuntimeException ex) {
+        ResponseStructure<String> rs = new ResponseStructure<>();
+        rs.setStatusCode(HttpStatus.UNAUTHORIZED.value());
+        rs.setMessage("Invalid credentials. Please check your mobile number / email and password.");
+        rs.setData(null);
+        return new ResponseEntity<>(rs, HttpStatus.UNAUTHORIZED);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ResponseStructure<String>> handleRuntimeException(RuntimeException ex) {
         ResponseStructure<String> rs = new ResponseStructure<>();
-        // If message suggests a business validation error, use 400
-        boolean isValidationError = ex.getMessage() != null && (
-            ex.getMessage().contains("OTP") || 
-            ex.getMessage().contains("completed") ||
-            ex.getMessage().contains("missing")
-        );
-        
-        HttpStatus status = isValidationError ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
-        
+        String msg = ex.getMessage() != null ? ex.getMessage() : "Unexpected error";
+
+        // Business logic errors that are really bad-request, not server faults
+        boolean isBadRequest = msg.contains("OTP")
+                || msg.contains("completed")
+                || msg.contains("missing")
+                || msg.contains("not found")
+                || msg.contains("Not Found")
+                || msg.contains("already")
+                || msg.contains("cannot")
+                || msg.contains("Invalid")
+                || msg.contains("must be");
+
+        HttpStatus status = isBadRequest ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
         rs.setStatusCode(status.value());
-        rs.setMessage(ex.getMessage());
+        rs.setMessage(msg);
         rs.setData(null);
         return new ResponseEntity<>(rs, status);
     }
