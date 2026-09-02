@@ -9,6 +9,11 @@ public class BookingRequestDTO {
     private Double distance;       // you already calculate from matrix API
     private Double fare;           // calculated using vehicle.pricePerKm
     private String estimatedTime;  // also calculated
+    private Double baseFare;
+    private Double distanceFare;
+    private Double penalty;
+    private Double totalAmount;
+    private Double pricePerKm;
 
     private String vehicleNumber;  // ⭐ customer selects one vehicle
 
@@ -65,6 +70,21 @@ public class BookingRequestDTO {
 	public void setEstimatedTime(String estimatedTime) {
 		this.estimatedTime = estimatedTime;
 	}
+
+	public Double getBaseFare() { return baseFare; }
+	public void setBaseFare(Double baseFare) { this.baseFare = baseFare; }
+
+	public Double getDistanceFare() { return distanceFare; }
+	public void setDistanceFare(Double distanceFare) { this.distanceFare = distanceFare; }
+
+	public Double getPenalty() { return penalty; }
+	public void setPenalty(Double penalty) { this.penalty = penalty; }
+
+	public Double getTotalAmount() { return totalAmount; }
+	public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
+
+	public Double getPricePerKm() { return pricePerKm; }
+	public void setPricePerKm(Double pricePerKm) { this.pricePerKm = pricePerKm; }
 
 	public String getVehicleNumber() {
 		return vehicleNumber;

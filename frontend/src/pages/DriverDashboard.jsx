@@ -14,6 +14,7 @@ const DriverDashboard = () => {
     const navigate = useNavigate();
     const [activeRide, setActiveRide] = useState(null);
     const [otpInput, setOtpInput] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState('');
     const [status, setStatus] = useState('ONLINE');
     const [loading, setLoading] = useState(false);
     const [showPayment, setShowPayment] = useState(false);
@@ -21,8 +22,12 @@ const DriverDashboard = () => {
     const [showProfile, setShowProfile] = useState(false);
     const [bookingHistory, setBookingHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+    const [earningsData, setEarningsData] = useState(null);
     const [totalEarnings, setTotalEarnings] = useState(0);
     const [totalTrips, setTotalTrips] = useState(0);
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [isBroadcasting, setIsBroadcasting] = useState(false);
 
     const driverMobile = user?.mobile;
     const isOnline     = useOnlineStatus();
@@ -43,6 +48,19 @@ const DriverDashboard = () => {
                     if (ride.id && !ride.bookingId) ride.bookingId = ride.id;
                     setActiveRide(ride);
                     cacheActiveRide(ride);
+
+                    if (ride.bookingStatus === 'COMPLETED') {
+                        const payRes = await axios.get(`${API_BASE_URL}/api/payment/status?bookingId=${ride.bookingId}`);
+                        const pStatus = payRes.data.data;
+                        setPaymentStatus(pStatus);
+                        if (pStatus === 'SUCCESS' || pStatus === 'PAID') {
+                            setActiveRide(null);
+                            setShowPayment(false);
+                            clearCachedRide();
+                        } else {
+                            setShowPayment(true);
+                        }
+                    }
                 } else {
                     setActiveRide(null);
                     setShowPayment(false);
@@ -57,7 +75,39 @@ const DriverDashboard = () => {
         fetchBookingHistory(); // Fetch stats on initial load
         const interval = setInterval(fetchActiveBooking, 3000);
         return () => clearInterval(interval);
-    }, [driverMobile]);
+    }, [driverMobile, isOnline]);
+
+    // Live Location Broadcast
+    useEffect(() => {
+        if (status === 'OFFLINE' || !driverMobile) {
+            setIsBroadcasting(false);
+            return;
+        }
+
+        let watchId;
+        if ('geolocation' in navigator) {
+            setIsBroadcasting(true);
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    try {
+                        await axios.post(`${API_BASE_URL}/driver/updateLocation?mobNo=${driverMobile}&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                    } catch (error) {
+                        console.error('Failed to update location', error);
+                    }
+                },
+                (error) => {
+                    console.error('GPS error:', error);
+                    setIsBroadcasting(false);
+                },
+                { enableHighAccuracy: true, maximumAge: 5000, timeout: 5000 }
+            );
+        }
+
+        return () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            setIsBroadcasting(false);
+        };
+    }, [status, driverMobile]);
 
     const toggleStatus = async () => {
         const newStatus = status === 'ONLINE' ? 'OFFLINE' : 'ONLINE';
@@ -79,8 +129,13 @@ const DriverDashboard = () => {
             if (res.data.statusCode === 200) {
                 const historyData = res.data.data;
                 setBookingHistory(historyData?.rlist || []);
-                setTotalEarnings(historyData?.totalAmt || 0);
-                setTotalTrips(historyData?.rlist?.length || 0);
+            }
+            
+            const earningsRes = await axios.get(`${API_BASE_URL}/driver/earnings?mobNo=${driverMobile}`);
+            if (earningsRes.data.statusCode === 200) {
+                setEarningsData(earningsRes.data.data);
+                setTotalEarnings(earningsRes.data.data.totalEarnings || 0);
+                setTotalTrips(earningsRes.data.data.totalTrips || 0);
             }
         } catch (e) {
             console.log("Failed to fetch history");
@@ -134,9 +189,17 @@ const DriverDashboard = () => {
         if (!confirm("Confirm cash received?")) return;
         setLoading(true);
         try {
-            await axios.post(`${API_BASE_URL}/driver/payByCash?bookingId=${activeRide.bookingId}&paymentType=CASH`);
-            setActiveRide(null);
-            setShowPayment(false);
+            const res = await axios.post(`${API_BASE_URL}/driver/payByCash?bookingId=${activeRide.bookingId}&paymentType=CASH`);
+            const pStatus = res.data.data.paymentStatus;
+            setPaymentStatus(pStatus);
+            if (pStatus === 'PAID' || pStatus === 'SUCCESS') {
+                setActiveRide(null);
+                setShowPayment(false);
+                clearCachedRide();
+                alert("Payment complete! Ride finalized.");
+            } else {
+                alert("Cash receipt confirmed. Waiting for passenger to confirm cash payment.");
+            }
         } catch (e) {
             alert("Payment confirmation failed");
         } finally {
@@ -171,11 +234,17 @@ const DriverDashboard = () => {
         }
     };
 
-    const handleCancelRide = async () => {
-        if (!confirm("Cancel this ride?")) return;
+    const handleCancelRide = () => {
+        setShowCancelModal(true);
+        setCancelReason('');
+    };
+
+    const submitCancelRide = async () => {
+        if (!cancelReason) return alert('Please provide a reason for cancelling.');
         try {
-            await axios.put(`${API_BASE_URL}/driver/cancel/${activeRide.bookingId}`);
+            await axios.put(`${API_BASE_URL}/driver/cancel/${activeRide.bookingId}?reason=${encodeURIComponent(cancelReason)}`);
             setActiveRide(null);
+            setShowCancelModal(false);
         } catch (e) {
             alert("Error cancelling");
         }
@@ -254,10 +323,16 @@ const DriverDashboard = () => {
                                         <p className="text-xl font-black">₹{totalEarnings}</p>
                                     </div>
                                     <div className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Trips</p>
-                                        <p className="text-xl font-black">{totalTrips}</p>
+                                        <div className={`w-3 h-3 rounded-full ${status === 'ONLINE' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                        <span className="font-bold text-xs">{status}</span>
                                     </div>
                                 </div>
+
+                                {isBroadcasting && status === 'ONLINE' && (
+                                    <div className="mt-4 flex items-center justify-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 py-1.5 px-3 rounded-full text-[9px] font-black uppercase tracking-widest animate-pulse w-fit">
+                                        <Navigation size={10} /> Broadcasting Live GPS
+                                    </div>
+                                )}
                            </div>
                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#F7D100]/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
                         </div>
@@ -308,6 +383,16 @@ const DriverDashboard = () => {
                                                 <CheckCircle size={16} /> Confirm
                                             </button>
                                         </div>
+                                    </div>
+                                ) : paymentStatus === 'PENDING_CUSTOMER_CONFIRMATION' ? (
+                                    <div className="bg-[#F7D100]/10 border border-[#F7D100]/20 text-[#F7D100] p-6 rounded-[2rem] text-center animate-pulse">
+                                        <p className="text-sm font-black uppercase mb-2">⏳ Confirmation Pending</p>
+                                        <p className="text-xs text-gray-400">Waiting for passenger to confirm they paid cash...</p>
+                                    </div>
+                                ) : paymentStatus === 'DISPUTED' ? (
+                                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-[2rem] text-center">
+                                        <p className="text-sm font-black uppercase mb-2">⚠️ Payment Disputed</p>
+                                        <p className="text-xs text-gray-500">A mismatch or confirmation timeout has occurred. Under investigation.</p>
                                     </div>
                                 ) : (
                                     <div className="grid sm:grid-cols-2 gap-6">
@@ -449,22 +534,47 @@ const DriverDashboard = () => {
                                 <X size={24} />
                             </button>
                         </div>
-                        <div className="p-10 overflow-y-auto custom-scrollbar flex-1">
-                            {/* Stats bar */}
-                            <div className="flex border-b border-white/5 mb-8 -mx-10 px-10">
-                                <div className="flex-1 pb-6 text-center border-r border-white/5">
-                                    <p className="text-[9px] font-black text-gray-600 uppercase">Total Trips</p>
-                                    <p className="text-2xl font-black">{bookingHistory.length}</p>
+                        <div className="p-8 sm:p-10 overflow-y-auto custom-scrollbar flex-1">
+                            {/* Rich Earnings Dashboard */}
+                            {earningsData && (
+                                <div className="mb-10 space-y-4">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-600 mb-4">Earnings Overview</h4>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div className="bg-[#F7D100]/10 border border-[#F7D100]/20 p-5 rounded-[2rem]">
+                                            <p className="text-[9px] font-black text-[#F7D100] uppercase tracking-widest mb-1">Total Earnings</p>
+                                            <p className="text-3xl font-black italic tracking-tighter text-[#F7D100]">₹{Math.round(earningsData.totalEarnings || 0)}</p>
+                                        </div>
+                                        <div className="bg-white/5 border border-white/10 p-5 rounded-[2rem]">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Trips Completed</p>
+                                            <p className="text-3xl font-black tracking-tighter text-white">{earningsData.completedTrips || 0}</p>
+                                        </div>
+                                        <div className="bg-white/5 border border-white/10 p-5 rounded-[2rem]">
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Reliability Score</p>
+                                            <div className="flex items-baseline gap-1">
+                                                <p className={`text-3xl font-black tracking-tighter ${earningsData.reliabilityScore >= 80 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {Math.round(earningsData.reliabilityScore || 100)}%
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <div className="bg-black/30 border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                                            <span className="text-[9px] font-black text-gray-500 uppercase">Avg. Fare / Trip</span>
+                                            <span className="font-bold">₹{Math.round(earningsData.averageFare || 0)}</span>
+                                        </div>
+                                        <div className="bg-black/30 border border-white/5 p-4 rounded-2xl flex justify-between items-center">
+                                            <span className="text-[9px] font-black text-gray-500 uppercase">Cancelled Trips</span>
+                                            <span className="font-bold text-red-400">{earningsData.cancelledTrips || 0}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex-1 pb-6 text-center">
-                                    <p className="text-[9px] font-black text-[#F7D100] uppercase">Total Earned</p>
-                                    <p className="text-2xl font-black text-[#F7D100]">₹{Math.round(bookingHistory.reduce((s, r) => s + (r.fare || 0), 0))}</p>
-                                </div>
-                            </div>
+                            )}
 
                             <div className="flex items-center gap-3 mb-6">
                                 <TrendingUp size={16} className="text-[#F7D100]" />
-                                <h4 className="font-black uppercase tracking-[0.3em] text-[10px] text-gray-600">Earnings by Month</h4>
+                                <h4 className="font-black uppercase tracking-[0.3em] text-[10px] text-gray-600">Ride History</h4>
                                 <span className="ml-auto text-[10px] font-black text-[#F7D100] border border-[#F7D100]/30 px-3 py-1 rounded-full uppercase">{bookingHistory.length} Rides</span>
                             </div>
 
@@ -510,6 +620,27 @@ const DriverDashboard = () => {
                                     ))
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancel Modal */}
+            {showCancelModal && (
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="glass-card rounded-[2rem] w-full max-w-sm p-8 border-red-500/20">
+                        <h3 className="text-xl font-black italic mb-2 text-red-400 uppercase">Cancel Ride</h3>
+                        <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-6">Select a reason</p>
+                        <div className="space-y-3 mb-8">
+                            {['Customer not at pickup', 'Wrong address entered', 'Vehicle issue / Emergency', 'Other'].map(r => (
+                                <button key={r} onClick={() => setCancelReason(r)} className={`w-full text-left px-4 py-3 rounded-xl border transition-all text-xs font-bold uppercase tracking-wider ${cancelReason === r ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                                    {r}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setShowCancelModal(false)} className="flex-1 px-4 py-3 rounded-xl bg-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors">Go Back</button>
+                            <button onClick={submitCancelRide} className="flex-1 px-4 py-3 rounded-xl bg-red-500/20 text-red-500 border border-red-500/30 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/40 transition-colors">Confirm Cancel</button>
                         </div>
                     </div>
                 </div>

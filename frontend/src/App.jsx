@@ -6,6 +6,9 @@ import DriverDashboard from './pages/DriverDashboard';
 import LandingPage from './pages/LandingPage';
 import CorporateLogin from './pages/CorporateLogin';
 import CorporateDashboard from './pages/CorporateDashboard';
+import RideReceipt from './pages/RideReceipt';
+import PublicTracking from './pages/PublicTracking';
+import AdminDashboard from './pages/AdminDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -26,6 +29,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/home" element={
           <ProtectedRoute>
             <UserHome />
@@ -38,6 +42,12 @@ function App() {
         } />
         <Route path="/corporate/login"     element={<CorporateLogin />} />
         <Route path="/corporate/dashboard" element={<CorporateDashboard />} />
+        <Route path="/receipt/:bookingId" element={
+          <ProtectedRoute>
+            <RideReceipt />
+          </ProtectedRoute>
+        } />
+        <Route path="/track/:bookingId" element={<PublicTracking />} />
       </Routes>
     </AuthProvider>
     </ErrorBoundary>

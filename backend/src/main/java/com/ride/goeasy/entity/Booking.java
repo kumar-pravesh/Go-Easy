@@ -15,6 +15,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Entity
 public class Booking {
 
@@ -31,6 +33,11 @@ public class Booking {
 	@ManyToOne
 	private Vehicle vehicle;
 
+	@ManyToOne
+	@jakarta.persistence.JoinColumn(name = "driver_id")
+	@com.fasterxml.jackson.annotation.JsonIgnoreProperties("dblist")
+	private Driver driver;
+
 	private String sourceLocation;
 	private String destinationLocation;
 
@@ -38,8 +45,20 @@ public class Booking {
 	private Double fare;
 	private String estimatedTime;
 
+	private Double baseFare = 0.0;
+	private Double distanceFare = 0.0;
+	private Double penaltyAmount = 0.0;
+	private Double waitingCharge = 0.0;
+	private Double nightCharge = 0.0;
+	private Double platformFee = 0.0;
+	private Double tax = 0.0;
+	private Double discount = 0.0;
+	private Double pricePerKm = 0.0;
+	@jakarta.persistence.Column(name = "fare_locked", columnDefinition = "boolean DEFAULT false")
+	private boolean fareLocked = false;
+
 	private String startOtp; // before ride
-	private String endOtp; // after ride
+	private String endOtp;   // after ride
 
 	private boolean startOtpVerified;
 	private boolean endOtpVerified;
@@ -49,20 +68,21 @@ public class Booking {
 
 	private boolean activeBookingFlag;
 
-	@OneToOne(cascade = CascadeType.ALL)
+	@OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
 	@com.fasterxml.jackson.annotation.JsonIgnore
 	private Payment payment;
 
 	private String paymentMode; // CASH or UPI
 
 	private LocalDate rideDate;
+	private LocalDateTime rideStartedAt; // when driver began the ride (OTP verified)
 
 	// Recording consent — NONE | REQUESTED | ACCEPTED | ACTIVE | REJECTED | COMPLETED
 	@jakarta.persistence.Column(columnDefinition = "VARCHAR(20)")
 	private String recordingConsent = "NONE";
 	private LocalDateTime recordingRequestedAt;
 
-	// Scheduled ride fields — columnDefinition provides DEFAULT so ALTER TABLE succeeds on existing rows
+	// Scheduled ride fields
 	@jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
 	private boolean scheduled = false;
 	private LocalDateTime scheduledTime;
@@ -71,138 +91,105 @@ public class Booking {
 	@jakarta.persistence.Column(columnDefinition = "boolean DEFAULT false")
 	private boolean scheduledNotifSent = false;
 
+	// Cancellation tracking
+	@jakarta.persistence.Column(length = 500)
+	private String cancelReason;
+	@jakarta.persistence.Column(columnDefinition = "VARCHAR(20)")
+	private String cancelledBy; // CUSTOMER | DRIVER
 
+	// Ratings (1-5 stars)
+	private Integer driverRating;   // customer's rating OF the driver
+	private Integer customerRating; // driver's rating OF the customer
+	private String promoCodeUsed;   // promo code applied at booking
 
-	public String getStartOtp() {
-		return startOtp;
-	}
+	// ──────────── Getters & Setters ────────────
 
-	public void setStartOtp(String startOtp) {
-		this.startOtp = startOtp;
-	}
+	public String getStartOtp() { return startOtp; }
+	public void setStartOtp(String startOtp) { this.startOtp = startOtp; }
 
-	public String getEndOtp() {
-		return endOtp;
-	}
+	public String getEndOtp() { return endOtp; }
+	public void setEndOtp(String endOtp) { this.endOtp = endOtp; }
 
-	public void setEndOtp(String endOtp) {
-		this.endOtp = endOtp;
-	}
+	public boolean isStartOtpVerified() { return startOtpVerified; }
+	public void setStartOtpVerified(boolean startOtpVerified) { this.startOtpVerified = startOtpVerified; }
 
-	public boolean isStartOtpVerified() {
-		return startOtpVerified;
-	}
+	public boolean isEndOtpVerified() { return endOtpVerified; }
+	public void setEndOtpVerified(boolean endOtpVerified) { this.endOtpVerified = endOtpVerified; }
 
-	public void setStartOtpVerified(boolean startOtpVerified) {
-		this.startOtpVerified = startOtpVerified;
-	}
+	public int getId() { return id; }
+	public void setId(int id) { this.id = id; }
 
-	public boolean isEndOtpVerified() {
-		return endOtpVerified;
-	}
+	public Customer getCustomer() { return customer; }
+	public void setCustomer(Customer customer) { this.customer = customer; }
 
-	public void setEndOtpVerified(boolean endOtpVerified) {
-		this.endOtpVerified = endOtpVerified;
-	}
+	public Vehicle getVehicle() { return vehicle; }
+	public void setVehicle(Vehicle vehicle) { this.vehicle = vehicle; }
 
-	public int getId() {
-		return id;
-	}
+    public Driver getDriver() { return driver; }
+    public void setDriver(Driver driver) { this.driver = driver; }
 
-	public void setId(int id) {
-		this.id = id;
-	}
+	public String getSourceLocation() { return sourceLocation; }
+	public void setSourceLocation(String sourceLocation) { this.sourceLocation = sourceLocation; }
 
-	public Customer getCustomer() {
-		return customer;
-	}
+	public String getDestinationLocation() { return destinationLocation; }
+	public void setDestinationLocation(String destinationLocation) { this.destinationLocation = destinationLocation; }
 
-	public void setCustomer(Customer customer) {
-		this.customer = customer;
-	}
+	public Double getDistance() { return distance; }
+	public void setDistance(Double distance) { this.distance = distance; }
 
-	public Vehicle getVehicle() {
-		return vehicle;
-	}
+	public Double getFare() { return fare; }
+	public void setFare(Double fare) { this.fare = fare; }
 
-	public void setVehicle(Vehicle vehicle) {
-		this.vehicle = vehicle;
-	}
+	public Double getBaseFare() { return baseFare; }
+	public void setBaseFare(Double baseFare) { this.baseFare = baseFare; }
 
-	public String getSourceLocation() {
-		return sourceLocation;
-	}
+	public Double getDistanceFare() { return distanceFare; }
+	public void setDistanceFare(Double distanceFare) { this.distanceFare = distanceFare; }
 
-	public void setSourceLocation(String sourceLocation) {
-		this.sourceLocation = sourceLocation;
-	}
+	public Double getPenaltyAmount() { return penaltyAmount; }
+	public void setPenaltyAmount(Double penaltyAmount) { this.penaltyAmount = penaltyAmount; }
 
-	public String getDestinationLocation() {
-		return destinationLocation;
-	}
+	public Double getWaitingCharge() { return waitingCharge; }
+	public void setWaitingCharge(Double waitingCharge) { this.waitingCharge = waitingCharge; }
 
-	public void setDestinationLocation(String destinationLocation) {
-		this.destinationLocation = destinationLocation;
-	}
+	public Double getNightCharge() { return nightCharge; }
+	public void setNightCharge(Double nightCharge) { this.nightCharge = nightCharge; }
 
-	public Double getDistance() {
-		return distance;
-	}
+	public Double getPlatformFee() { return platformFee; }
+	public void setPlatformFee(Double platformFee) { this.platformFee = platformFee; }
 
-	public void setDistance(Double distance) {
-		this.distance = distance;
-	}
+	public Double getTax() { return tax; }
+	public void setTax(Double tax) { this.tax = tax; }
 
-	public Double getFare() {
-		return fare;
-	}
+	public Double getDiscount() { return discount; }
+	public void setDiscount(Double discount) { this.discount = discount; }
 
-	public void setFare(Double fare) {
-		this.fare = fare;
-	}
+	public Double getPricePerKm() { return pricePerKm; }
+	public void setPricePerKm(Double pricePerKm) { this.pricePerKm = pricePerKm; }
 
-	public String getEstimatedTime() {
-		return estimatedTime;
-	}
+	public boolean isFareLocked() { return fareLocked; }
+	public void setFareLocked(boolean fareLocked) { this.fareLocked = fareLocked; }
 
-	public void setEstimatedTime(String estimatedTime) {
-		this.estimatedTime = estimatedTime;
-	}
+	public String getEstimatedTime() { return estimatedTime; }
+	public void setEstimatedTime(String estimatedTime) { this.estimatedTime = estimatedTime; }
 
-	public BookingStatus getBookingStatus() {
-		return bookingStatus;
-	}
+	public BookingStatus getBookingStatus() { return bookingStatus; }
+	public void setBookingStatus(BookingStatus bookingStatus) { this.bookingStatus = bookingStatus; }
 
-	public void setBookingStatus(BookingStatus bookingStatus) {
-		this.bookingStatus = bookingStatus;
-	}
+	public boolean isActiveBookingFlag() { return activeBookingFlag; }
+	public void setActiveBookingFlag(boolean activeBookingFlag) { this.activeBookingFlag = activeBookingFlag; }
 
-	public boolean isActiveBookingFlag() {
-		return activeBookingFlag;
-	}
+	public Payment getPayment() { return payment; }
+	public void setPayment(Payment payment) { this.payment = payment; }
 
-	public void setActiveBookingFlag(boolean activeBookingFlag) {
-		this.activeBookingFlag = activeBookingFlag;
-	}
-
-	public Payment getPayment() {
-		return payment;
-	}
-
-	public void setPayment(Payment payment) {
-		this.payment = payment;
-	}
-
-	public String getPaymentMode() {
-		return paymentMode;
-	}
-
-	public void setPaymentMode(String paymentMode) {
-		this.paymentMode = paymentMode;
-	}
+	public String getPaymentMode() { return paymentMode; }
+	public void setPaymentMode(String paymentMode) { this.paymentMode = paymentMode; }
 
 	public LocalDate getRideDate() { return rideDate; }
 	public void setRideDate(LocalDate rideDate) { this.rideDate = rideDate; }
+
+	public LocalDateTime getRideStartedAt() { return rideStartedAt; }
+	public void setRideStartedAt(LocalDateTime rideStartedAt) { this.rideStartedAt = rideStartedAt; }
 
 	public String getRecordingConsent() { return recordingConsent; }
 	public void setRecordingConsent(String recordingConsent) { this.recordingConsent = recordingConsent; }
@@ -222,27 +209,22 @@ public class Booking {
 	public boolean isScheduledNotifSent() { return scheduledNotifSent; }
 	public void setScheduledNotifSent(boolean scheduledNotifSent) { this.scheduledNotifSent = scheduledNotifSent; }
 
-	public Booking(int id, Customer customer, Vehicle vehicle, String sourceLocation, String destinationLocation,
-			Double distance, Double fare, String estimatedTime, BookingStatus bookingStatus, boolean activeBookingFlag,
-			Payment payment, String paymentMode) {
-		super();
-		this.id = id;
-		this.customer = customer;
-		this.vehicle = vehicle;
-		this.sourceLocation = sourceLocation;
-		this.destinationLocation = destinationLocation;
-		this.distance = distance;
-		this.fare = fare;
-		this.estimatedTime = estimatedTime;
-		this.bookingStatus = bookingStatus;
-		this.activeBookingFlag = activeBookingFlag;
-		this.payment = payment;
-		this.paymentMode = paymentMode;
-	}
+	public String getCancelReason() { return cancelReason; }
+	public void setCancelReason(String cancelReason) { this.cancelReason = cancelReason; }
+
+	public String getCancelledBy() { return cancelledBy; }
+	public void setCancelledBy(String cancelledBy) { this.cancelledBy = cancelledBy; }
+
+	public Integer getDriverRating() { return driverRating; }
+	public void setDriverRating(Integer driverRating) { this.driverRating = driverRating; }
+
+	public Integer getCustomerRating() { return customerRating; }
+	public void setCustomerRating(Integer customerRating) { this.customerRating = customerRating; }
+
+	public String getPromoCodeUsed() { return promoCodeUsed; }
+	public void setPromoCodeUsed(String promoCodeUsed) { this.promoCodeUsed = promoCodeUsed; }
 
 	public Booking() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
-
 }

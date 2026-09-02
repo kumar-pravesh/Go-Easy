@@ -4,7 +4,7 @@ import API_BASE_URL from '../api';
 import {
     MapPin, Navigation, Clock, XCircle, Car, User, X, LogOut,
     LocateFixed, ShieldCheck, Leaf, Star, BellRing, Volume2, MessageSquare,
-    ChevronDown, Info
+    ChevronDown, Info, Share2, ShieldAlert, Trash2, ArrowRight, FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,19 @@ import logo from '../assets/logo.svg';
 import { TierBadge, VerificationInfoModal } from '../components/VerificationBadge';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { cacheActiveRide, clearCachedRide, getCachedRide } from '../utils/offlineStorage';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const FUEL_COLORS = { ELECTRIC: 'text-green-400', CNG: 'text-emerald-400', PETROL: 'text-gray-500', DIESEL: 'text-gray-500' };
 const PREF_ICONS  = { SILENT: <Volume2 size={10} />, FRIENDLY: <MessageSquare size={10} />, ANY: null };
@@ -38,7 +51,9 @@ const UserHome = () => {
     const [loading, setLoading] = useState(false);
     const [activeRide, setActiveRide] = useState(null);
     const [paymentMode] = useState('CASH');
+    const [paymentStatus, setPaymentStatus] = useState('');
     const [showProfile, setShowProfile] = useState(false);
+    const [profileTab, setProfileTab] = useState('RIDES'); // RIDES or CONTACTS
     const [bookingHistory, setBookingHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [locLoading, setLocLoading] = useState(false);
@@ -67,6 +82,16 @@ const UserHome = () => {
     const [ratingSubmitted, setRatingSubmitted] = useState(false);
     const ratedRideRef = useRef(null);
 
+    // Cancel modal
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+
+    // Safety Features
+    const [trustedContacts, setTrustedContacts] = useState([]);
+    const [newContactName, setNewContactName] = useState('');
+    const [newContactPhone, setNewContactPhone] = useState('');
+    const [contactsLoading, setContactsLoading] = useState(false);
+
     useEffect(() => {
         if (!user?.mobile) return;
         fetchScheduledRides();
@@ -85,6 +110,12 @@ const UserHome = () => {
                 if (res.data.statusCode === 200 && ride && (ride.id || ride.bookingId)) {
                     setActiveRide(ride);
                     cacheActiveRide(ride); // keep local copy for offline
+                    
+                    if (ride.bookingStatus === 'COMPLETED') {
+                        const payRes = await axios.get(`${API_BASE_URL}/api/payment/status?bookingId=${ride.id || ride.bookingId}`);
+                        setPaymentStatus(payRes.data.data);
+                    }
+
                     if (ride.bookingStatus === 'COMPLETED' && !ratingSubmitted && ratedRideRef.current !== ride.id) {
                         setShowRating(true);
                     }
@@ -197,7 +228,12 @@ const UserHome = () => {
                 sourceLocation: source,
                 destinationLocation: dest,
                 distance: vehicle.distance || 5.0,
-                fare: vehicle.estimatedFare,
+                fare: vehicle.totalAmout || vehicle.estimatedFare,
+                baseFare: vehicle.baseFare,
+                distanceFare: vehicle.distanceFare,
+                penalty: vehicle.penalty,
+                totalAmount: vehicle.totalAmout || vehicle.estimatedFare,
+                pricePerKm: vehicle.pricePerKm,
                 estimatedTime: Math.round(vehicle.estimatedTime) + ' mins',
                 vehicleNumber: vehicle.vehicleNumber,
                 paymentMode,
@@ -225,12 +261,95 @@ const UserHome = () => {
         }
     };
 
-    const handleCancelRide = async () => {
-        if (!activeRide || !confirm('Cancel this ride?')) return;
+    const handleCancelRide = () => {
+        setShowCancelModal(true);
+        setCancelReason('');
+    };
+
+    const submitCancelRide = async () => {
+        if (!cancelReason) return alert('Please provide a reason for cancelling.');
         try {
-            await axios.post(`${API_BASE_URL}/customer/cancelRide?bookingId=${activeRide.id || activeRide.bookingId}`);
+            await axios.post(`${API_BASE_URL}/customer/cancelRide?bookingId=${activeRide.id || activeRide.bookingId}&reason=${encodeURIComponent(cancelReason)}`);
             setActiveRide(null);
+            setShowCancelModal(false);
         } catch { alert('Cancel failed'); }
+    };
+
+    // Safety Methods
+    const fetchTrustedContacts = async () => {
+        setContactsLoading(true);
+        try {
+            const res = await axios.get(`${API_BASE_URL}/customer/getTrustedContacts?mobNo=${user.mobile}`);
+            if (res.data.statusCode === 200) {
+                setTrustedContacts(res.data.data);
+            }
+        } catch { /* ignore */ }
+        finally { setContactsLoading(false); }
+    };
+
+    const addTrustedContact = async (e) => {
+        e.preventDefault();
+        if (!newContactName || !newContactPhone) return;
+        try {
+            const res = await axios.post(`${API_BASE_URL}/customer/addTrustedContact?mobNo=${user.mobile}&name=${encodeURIComponent(newContactName)}&phone=${encodeURIComponent(newContactPhone)}`);
+            if (res.data.statusCode === 200) {
+                setTrustedContacts([...trustedContacts, res.data.data]);
+                setNewContactName('');
+                setNewContactPhone('');
+            }
+        } catch { alert('Failed to add contact'); }
+    };
+
+    const deleteTrustedContact = async (contactId) => {
+        try {
+            await axios.delete(`${API_BASE_URL}/customer/deleteTrustedContact?mobNo=${user.mobile}&contactId=${contactId}`);
+            setTrustedContacts(trustedContacts.filter(c => c.id !== contactId));
+        } catch { alert('Failed to delete contact'); }
+    };
+
+    const handleShareRide = () => {
+        const link = `${window.location.origin}/track/${activeRide.id || activeRide.bookingId}`;
+        navigator.clipboard.writeText(`Track my Go-Easy ride live: ${link}`);
+        alert('Tracking link copied to clipboard!');
+    };
+
+    const handleSOS = async () => {
+        if (!confirm('Are you sure you want to trigger SOS? This will alert your trusted contacts immediately.')) return;
+        
+        const lat = activeRide?.vehicle?.latitude || 0;
+        const lon = activeRide?.vehicle?.longitude || 0;
+        try {
+            await axios.post(`${API_BASE_URL}/customer/sos?bookingId=${activeRide.id || activeRide.bookingId}&latitude=${lat}&longitude=${lon}`);
+            alert('SOS Triggered! Your trusted contacts have been notified.');
+        } catch {
+            alert('Failed to trigger SOS. Please call emergency services directly.');
+        }
+    };
+
+    const handleConfirmCashPayment = async () => {
+        try {
+            const bookingId = activeRide?.id || activeRide?.bookingId;
+            const res = await axios.post(`${API_BASE_URL}/api/payment/customer-confirm-cash?bookingId=${bookingId}`);
+            if (res.data.statusCode === 200) {
+                setPaymentStatus(res.data.data);
+                alert(res.data.message);
+            }
+        } catch (e) {
+            alert(e.response?.data?.message || 'Could not confirm cash payment.');
+        }
+    };
+
+    const handleSimulateUpiSuccess = async () => {
+        try {
+            const bookingId = activeRide?.id || activeRide?.bookingId;
+            const res = await axios.post(`${API_BASE_URL}/api/payment/simulate-upi-success?bookingId=${bookingId}`);
+            if (res.data.statusCode === 200) {
+                setPaymentStatus(res.data.data);
+                alert(res.data.message);
+            }
+        } catch (e) {
+            alert(e.response?.data?.message || 'Could not simulate UPI success.');
+        }
     };
 
     const handleSubmitRating = async () => {
@@ -248,6 +367,9 @@ const UserHome = () => {
     const isRideBooked   = rideStatus === 'BOOKED';
     const isRideOngoing  = rideStatus === 'ONGOING';
     const isRideCompleted = rideStatus === 'COMPLETED';
+    const driverVehicle = activeRide?.vehicle;
+    const hasDriverLocation = driverVehicle?.latitude != null && driverVehicle?.longitude != null;
+    const lockedFareTotal = activeRide?.fare ?? 0;
 
     const formatTime = (minutes) => {
         if (!minutes) return '0m';
@@ -275,7 +397,7 @@ const UserHome = () => {
                 <div className="w-full max-w-7xl flex items-center justify-between">
                     <img src={logo} alt="Go-Easy" className="h-12 sm:h-14 w-auto object-contain" />
                     <div className="flex items-center gap-4">
-                        <button onClick={() => { setShowProfile(true); fetchBookingHistory(); }} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/5 transition-all text-sm font-bold">
+                        <button onClick={() => { setShowProfile(true); fetchBookingHistory(); fetchTrustedContacts(); }} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/5 transition-all text-sm font-bold">
                             <User size={16} className="text-[#F7D100]" /><span className="hidden sm:inline">My History</span>
                         </button>
                         <button onClick={() => { logout(); navigate('/'); }} className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-xl border border-red-500/10 transition-all text-sm font-bold">
@@ -450,6 +572,34 @@ const UserHome = () => {
                                         </div>
                                     </div>
 
+                                    {/* Live Tracking Map */}
+                                    <div className="w-full h-48 sm:h-64 rounded-2xl overflow-hidden mb-8 border border-white/10 z-0 relative">
+                                        {(activeRide.vehicle?.latitude && activeRide.vehicle?.longitude) ? (
+                                            <MapContainer center={[activeRide.vehicle.latitude, activeRide.vehicle.longitude]} zoom={14} className="w-full h-full" zoomControl={false}>
+                                                <TileLayer
+                                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                                />
+                                                <Marker position={[activeRide.vehicle.latitude, activeRide.vehicle.longitude]}>
+                                                    <Popup>
+                                                        <div className="text-black text-center font-bold">
+                                                            {activeRide.vehicle?.driver?.dname || 'Driver'}<br/>
+                                                            {activeRide.vehicle?.vehicleModel}
+                                                        </div>
+                                                    </Popup>
+                                                </Marker>
+                                            </MapContainer>
+                                        ) : (
+                                            <div className="w-full h-full bg-black/40 flex items-center justify-center">
+                                                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Map Loading...</p>
+                                            </div>
+                                        )}
+                                        <div className="absolute top-2 left-2 z-[400] bg-black/60 backdrop-blur border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2 pointer-events-none">
+                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-green-400 text-shadow">Live Tracking</span>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-8 relative mb-10">
                                         <div className="absolute left-[11px] top-6 bottom-6 w-[1px] bg-gradient-to-b from-[#F7D100] via-gray-800 to-gray-900"></div>
                                         <div className="flex items-center relative z-10">
@@ -498,13 +648,63 @@ const UserHome = () => {
                                         {isRideCompleted && (
                                             <>
                                                 <p className="font-black text-xl italic tracking-tight mb-2">Ride Completed!</p>
-                                                <p className="text-sm text-gray-500 mb-4">Payment pending driver confirmation.</p>
+                                                
+                                                {activeRide.paymentMode === 'CASH' ? (
+                                                    <>
+                                                        {paymentStatus === 'DISPUTED' ? (
+                                                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-2xl text-xs mb-4">
+                                                                ⚠️ Dispute Detected: Driver and customer confirmation mismatch or timeout. Support is investigating.
+                                                            </div>
+                                                        ) : paymentStatus === 'PENDING_DRIVER_CONFIRMATION' ? (
+                                                            <p className="text-sm text-yellow-400 mb-4 animate-pulse">⏳ Cash paid. Waiting for driver confirmation...</p>
+                                                        ) : (
+                                                            <>
+                                                                <p className="text-sm text-gray-400 mb-4">Please hand over ₹{activeRide.fare} in cash to the driver and confirm.</p>
+                                                                <button 
+                                                                    onClick={handleConfirmCashPayment}
+                                                                    className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-2xl text-[10px] uppercase tracking-widest transition-all mb-4"
+                                                                >
+                                                                    Confirm Cash Paid
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-sm text-gray-400 mb-4">Please complete the payment using UPI.</p>
+                                                        <button 
+                                                            onClick={handleSimulateUpiSuccess}
+                                                            className="w-full bg-[#F7D100] hover:bg-[#E6C000] text-black font-bold py-3 px-4 rounded-2xl text-[10px] uppercase tracking-widest transition-all mb-4"
+                                                        >
+                                                            Simulate UPI Payment Webhook
+                                                        </button>
+                                                    </>
+                                                )}
+
                                                 <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
                                                     <p className="text-[10px] font-black text-gray-500 uppercase">Total Fare</p>
                                                     <p className="text-4xl font-black text-[#F7D100]">₹{activeRide.fare}</p>
                                                 </div>
                                             </>
                                         )}
+                                    </div>
+
+                                    <div className="bg-black/30 border border-white/5 rounded-[2rem] p-5 mb-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Locked Fare</p>
+                                            <span className="text-[9px] font-black text-green-400 uppercase">{activeRide.fareLocked ? 'No hidden charges' : 'Estimated'}</span>
+                                        </div>
+                                        <div className="space-y-2 text-[10px] font-bold">
+                                            <div className="flex justify-between text-gray-500"><span>Base fare</span><span>₹{Math.round(activeRide.baseFare || 0)}</span></div>
+                                            <div className="flex justify-between text-gray-500"><span>Distance fare</span><span>₹{Math.round(activeRide.distanceFare || 0)}</span></div>
+                                            {(activeRide.penaltyAmount || 0) > 0 && (
+                                                <div className="flex justify-between text-red-400"><span>Previous cancellation penalty</span><span>₹{Math.round(activeRide.penaltyAmount)}</span></div>
+                                            )}
+                                            <div className="flex justify-between text-white border-t border-white/10 pt-2 mt-2">
+                                                <span className="font-black uppercase">Total</span>
+                                                <span className="font-black text-[#F7D100]">₹{Math.round(lockedFareTotal)}</span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Safety recording request (BOOKED or ONGOING) */}
@@ -537,6 +737,25 @@ const UserHome = () => {
                                             <XCircle size={14} /> Cancel Ride
                                         </button>
                                     )}
+
+                                    {/* SOS & Share Ride Buttons */}
+                                    {(isRideBooked || isRideOngoing) && (
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={handleShareRide}
+                                                className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                            >
+                                                <Share2 size={13} /> Share
+                                            </button>
+                                            <button
+                                                onClick={handleSOS}
+                                                className="flex-[2] flex items-center justify-center gap-2 bg-red-600/80 hover:bg-red-500 border border-red-500/50 text-white py-3 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(220,38,38,0.3)]"
+                                            >
+                                                <ShieldAlert size={13} /> SOS Emergency
+                                            </button>
+                                        </div>
+                                    )}
+
                                 </div>
                             </div>
                         )}
@@ -639,6 +858,11 @@ const UserHome = () => {
                                                         <TierBadge tier={v.driverVerificationTier} size="xs" />
                                                     </button>
                                                 )}
+                                                {v.driverReliabilityScore !== undefined && v.driverReliabilityScore !== null && (
+                                                    <span className={`flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border ${v.driverReliabilityScore >= 80 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                                                        <Star size={8} className={v.driverReliabilityScore >= 80 ? 'text-green-400' : 'text-red-400'} /> {Math.round(v.driverReliabilityScore)}% Reliable
+                                                    </span>
+                                                )}
                                                 {v.driverRidePreference && v.driverRidePreference !== 'ANY' && (
                                                     <span className="flex items-center gap-0.5 text-[8px] font-black text-gray-500 uppercase">
                                                         {PREF_ICONS[v.driverRidePreference]} {v.driverRidePreference}
@@ -708,7 +932,27 @@ const UserHome = () => {
                                         <Navigation size={48} className="text-[#F7D100] animate-pulse" />
                                     </div>
                                     <h2 className="text-3xl font-black italic tracking-tighter mb-4 uppercase">Go-Easy is On It</h2>
-                                    <p className="text-gray-500 max-w-sm mx-auto font-medium leading-relaxed">Tracking your ride. Safety protocols engaged.</p>
+                                    <p className="text-gray-500 max-w-sm mx-auto font-medium leading-relaxed mb-8">Tracking your ride. Safety protocols engaged.</p>
+                                    <div className="grid grid-cols-2 gap-4 max-w-md mx-auto text-left">
+                                        <div className="bg-black/40 border border-white/5 rounded-2xl p-4">
+                                            <p className="text-[9px] font-black text-gray-600 uppercase mb-1">Driver GPS</p>
+                                            <p className="text-xs font-bold text-gray-300">
+                                                {hasDriverLocation ? `${Number(driverVehicle.latitude).toFixed(5)}, ${Number(driverVehicle.longitude).toFixed(5)}` : 'Waiting for driver signal'}
+                                            </p>
+                                        </div>
+                                        <div className="bg-black/40 border border-white/5 rounded-2xl p-4">
+                                            <p className="text-[9px] font-black text-gray-600 uppercase mb-1">Vehicle</p>
+                                            <p className="text-xs font-bold text-gray-300">{driverVehicle?.vehicleNumber || 'Assigned after booking'}</p>
+                                        </div>
+                                        <div className="bg-black/40 border border-white/5 rounded-2xl p-4">
+                                            <p className="text-[9px] font-black text-gray-600 uppercase mb-1">Distance</p>
+                                            <p className="text-xs font-bold text-gray-300">{activeRide.distance?.toFixed?.(1) || activeRide.distance || '0'} km</p>
+                                        </div>
+                                        <div className="bg-black/40 border border-white/5 rounded-2xl p-4">
+                                            <p className="text-[9px] font-black text-gray-600 uppercase mb-1">Locked Fare</p>
+                                            <p className="text-xs font-bold text-[#F7D100]">₹{Math.round(lockedFareTotal)}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -737,71 +981,174 @@ const UserHome = () => {
                 </div>
             )}
 
-            {/* Booking History Modal */}
+            {/* Booking History / Profile Modal */}
             {showProfile && (
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div className="glass-card rounded-[3rem] w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-[0_0_100px_rgba(247,209,0,0.1)]">
-                        <div className="bg-[#F7D100] p-8 sm:p-12 flex justify-between items-center shrink-0">
-                            <div>
-                                <h3 className="text-black font-black text-3xl italic tracking-tighter uppercase">My Rides</h3>
-                                <p className="text-black/60 text-xs font-bold font-mono mt-1">{user?.mobile}</p>
-                            </div>
-                            <button onClick={() => setShowProfile(false)} className="bg-black/10 p-3 rounded-2xl hover:rotate-90 transition-all text-black"><X size={24} /></button>
-                        </div>
 
-                        {/* Stats bar */}
-                        <div className="flex border-b border-white/5 shrink-0">
-                            <div className="flex-1 p-5 text-center border-r border-white/5">
-                                <p className="text-[9px] font-black text-gray-600 uppercase">Total Rides</p>
-                                <p className="text-2xl font-black">{bookingHistory.length}</p>
-                            </div>
-                            <div className="flex-1 p-5 text-center">
-                                <p className="text-[9px] font-black text-[#F7D100] uppercase">Total Spent</p>
-                                <p className="text-2xl font-black text-[#F7D100]">₹{Math.round(bookingHistory.reduce((s, r) => s + (r.fare || 0), 0))}</p>
-                            </div>
-                        </div>
-
-                        <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1">
-                            {historyLoading ? (
-                                <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-[#F7D100] border-t-transparent rounded-full animate-spin"></div></div>
-                            ) : bookingHistory.length === 0 ? (
-                                <div className="py-20 text-center opacity-30 flex flex-col items-center">
-                                    <XCircle size={40} className="mb-4" />
-                                    <p className="text-[10px] font-black uppercase tracking-widest">No rides yet</p>
+                        {/* Header */}
+                        <div className="bg-[#F7D100] p-8 sm:p-10 shrink-0">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="text-black font-black text-3xl italic tracking-tighter uppercase">My Profile</h3>
+                                    <p className="text-black/60 text-xs font-bold font-mono mt-1">{user?.mobile}</p>
                                 </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {groupByWeek(bookingHistory).map((group) => (
-                                        <div key={group.label}>
-                                            <div className="flex items-center justify-between mb-3">
-                                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{group.label}</span>
-                                                <span className="text-[9px] font-black text-[#F7D100]">₹{Math.round(group.total)}</span>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {group.rides.map((ride, idx) => (
-                                                    <div key={idx} className="bg-white/5 border border-white/5 p-5 rounded-[1.5rem] hover:border-[#F7D100]/20 transition-all">
-                                                        <div className="flex justify-between items-center">
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-[#F7D100] rounded-full"></div><p className="text-xs font-bold text-gray-400">{ride.sourceLocation}</p></div>
-                                                                <div className="flex items-center gap-2"><div className="w-2 h-2 bg-gray-700 rounded-full"></div><p className="text-xs font-bold text-gray-400">{ride.destinationLocation}</p></div>
-                                                                <div className="flex gap-3 pt-1">
-                                                                    <span className="text-[9px] font-black text-gray-600 uppercase">{ride.distance} km</span>
-                                                                    <span className="text-[9px] font-black text-[#F7D100] uppercase">{ride.bookingStatus}</span>
+                                <button onClick={() => setShowProfile(false)} className="bg-black/10 p-3 rounded-2xl hover:rotate-90 transition-all text-black"><X size={24} /></button>
+                            </div>
+                            {/* Tabs */}
+                            <div className="flex gap-6 border-b border-black/10">
+                                <button onClick={() => setProfileTab('RIDES')} className={`text-xs font-black uppercase tracking-widest pb-3 transition-all ${profileTab === 'RIDES' ? 'text-black border-b-2 border-black' : 'text-black/40 hover:text-black/70'}`}>History</button>
+                                <button onClick={() => setProfileTab('CONTACTS')} className={`text-xs font-black uppercase tracking-widest pb-3 transition-all ${profileTab === 'CONTACTS' ? 'text-black border-b-2 border-black' : 'text-black/40 hover:text-black/70'}`}>Trusted Contacts</button>
+                            </div>
+                        </div>
+
+                        {/* RIDES TAB */}
+                        {profileTab === 'RIDES' && (
+                            <>
+                                <div className="flex border-b border-white/5 shrink-0">
+                                    <div className="flex-1 p-5 text-center border-r border-white/5">
+                                        <p className="text-[9px] font-black text-gray-600 uppercase">Total Rides</p>
+                                        <p className="text-2xl font-black">{bookingHistory.length}</p>
+                                    </div>
+                                    <div className="flex-1 p-5 text-center">
+                                        <p className="text-[9px] font-black text-gray-600 uppercase">Total Spent</p>
+                                        <p className="text-2xl font-black text-[#F7D100]">₹{Math.round(bookingHistory.reduce((s, r) => s + (r.fare || 0), 0))}</p>
+                                    </div>
+                                </div>
+                                <div className="p-6 sm:p-8 overflow-y-auto custom-scrollbar flex-1">
+                                    {historyLoading ? (
+                                        <div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-[#F7D100] border-t-transparent rounded-full animate-spin"></div></div>
+                                    ) : bookingHistory.length === 0 ? (
+                                        <div className="py-20 text-center opacity-30 flex flex-col items-center">
+                                            <XCircle size={40} className="mb-4" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest">No rides yet</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {groupByWeek(bookingHistory).map((group) => (
+                                                <div key={group.label}>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{group.label}</span>
+                                                        <span className="text-[9px] font-black text-[#F7D100]">₹{Math.round(group.total)}</span>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        {group.rides.map((ride, idx) => (
+                                                            <div key={idx} className="bg-white/5 border border-white/5 p-5 rounded-[1.5rem] hover:border-[#F7D100]/20 transition-all">
+                                                                <div className="flex justify-between items-center">
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex items-center gap-2"><div className="w-2 h-2 bg-[#F7D100] rounded-full"></div><p className="text-xs font-bold text-gray-400">{ride.sourceLocation}</p></div>
+                                                                        <div className="flex items-center gap-2"><div className="w-2 h-2 bg-gray-700 rounded-full"></div><p className="text-xs font-bold text-gray-400">{ride.destinationLocation}</p></div>
+                                                                        <div className="flex gap-3 pt-1">
+                                                                            <span className="text-[9px] font-black text-gray-600 uppercase">{ride.distance} km</span>
+                                                                            <span className="text-[9px] font-black text-[#F7D100] uppercase">{ride.bookingStatus}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="text-xl font-black italic text-[#F7D100] mb-2">₹{Math.round(ride.fare)}</p>
+                                                                        <button onClick={() => navigate(`/receipt/${ride.bookingId || ride.id}`)} className="text-[9px] font-black uppercase text-gray-400 hover:text-white border border-gray-600 hover:border-white px-2 py-1 rounded-full transition-colors flex items-center gap-1">
+                                                                            <FileText size={9} /> Receipt
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <p className="text-xl font-black italic text-[#F7D100]">₹{Math.round(ride.fare)}</p>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {/* CONTACTS TAB */}
+                        {profileTab === 'CONTACTS' && (
+                            <div className="overflow-y-auto p-6 sm:p-8 custom-scrollbar flex-1 space-y-6">
+                                <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem]">
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-[#F7D100] mb-5 flex items-center gap-2"><ShieldAlert size={14} /> Add Trusted Contact</h4>
+                                    <p className="text-[10px] text-gray-500 font-bold mb-4">These contacts will be notified if you trigger the SOS button during an active ride.</p>
+                                    <form onSubmit={addTrustedContact} className="space-y-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <input
+                                                type="text"
+                                                value={newContactName}
+                                                onChange={(e) => setNewContactName(e.target.value)}
+                                                placeholder="Contact Name"
+                                                required
+                                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F7D100] transition-colors"
+                                            />
+                                            <input
+                                                type="tel"
+                                                value={newContactPhone}
+                                                onChange={(e) => setNewContactPhone(e.target.value)}
+                                                placeholder="Phone Number"
+                                                required
+                                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F7D100] transition-colors"
+                                            />
+                                        </div>
+                                        <button type="submit" className="w-full bg-[#F7D100] text-black font-black uppercase tracking-widest py-3 rounded-xl hover:bg-yellow-400 transition-colors text-[10px]">
+                                            Add Contact
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Saved Contacts ({trustedContacts.length})</h4>
+                                    {contactsLoading ? (
+                                        <div className="py-8 flex justify-center"><div className="w-6 h-6 border-2 border-[#F7D100] border-t-transparent rounded-full animate-spin"></div></div>
+                                    ) : trustedContacts.length === 0 ? (
+                                        <div className="py-10 text-center">
+                                            <ShieldAlert size={32} className="text-gray-700 mx-auto mb-3" />
+                                            <p className="text-gray-500 font-bold text-sm">No trusted contacts added yet.</p>
+                                            <p className="text-gray-600 text-xs mt-1">Add someone who should be notified in emergencies.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {trustedContacts.map(c => (
+                                                <div key={c.id} className="flex justify-between items-center bg-black/30 border border-white/5 p-4 rounded-2xl hover:border-white/10 transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 bg-[#F7D100]/10 rounded-xl flex items-center justify-center border border-[#F7D100]/20">
+                                                            <User size={14} className="text-[#F7D100]" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-sm">{c.name}</p>
+                                                            <p className="text-gray-400 text-xs font-mono">{c.phoneNumber}</p>
                                                         </div>
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <button onClick={() => deleteTrustedContact(c.id)} className="text-red-500 hover:text-red-400 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all">
+                                                        <Trash2 size={14}/>
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
+
                     </div>
                 </div>
             )}
+        {/* Cancel Modal */}
+        {showCancelModal && (
+            <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="glass-card rounded-[2rem] w-full max-w-sm p-8 border-red-500/20">
+                    <h3 className="text-xl font-black italic mb-2 text-red-400 uppercase">Cancel Ride</h3>
+                    <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-6">Select a reason</p>
+                    <div className="space-y-3 mb-8">
+                        {['Driver asked to cancel', 'Driver is too far', 'Booked by mistake', 'Other'].map(r => (
+                            <button key={r} onClick={() => setCancelReason(r)} className={`w-full text-left px-4 py-3 rounded-xl border transition-all text-xs font-bold uppercase tracking-wider ${cancelReason === r ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                                {r}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setShowCancelModal(false)} className="flex-1 px-4 py-3 rounded-xl bg-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors">Go Back</button>
+                        <button onClick={submitCancelRide} className="flex-1 px-4 py-3 rounded-xl bg-red-500/20 text-red-500 border border-red-500/30 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/40 transition-colors">Confirm Cancel</button>
+                    </div>
+                </div>
+            </div>
+        )}
         </div>
     );
 };

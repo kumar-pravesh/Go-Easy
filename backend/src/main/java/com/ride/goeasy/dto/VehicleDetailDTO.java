@@ -19,6 +19,8 @@ public class VehicleDetailDTO {
     private String driverRidePreference;  // ANY / SILENT / FRIENDLY
     private String driverVerificationTier; // BRONZE / SILVER / GOLD
     private Double driverRating;
+    private Integer driverTotalRatings;
+    private Double driverReliabilityScore;
 
     // Vehicle info
     private String fuelType; // PETROL / DIESEL / CNG / ELECTRIC
@@ -74,6 +76,12 @@ public class VehicleDetailDTO {
 
     public Double getDriverRating() { return driverRating; }
     public void setDriverRating(Double driverRating) { this.driverRating = driverRating; }
+
+    public Integer getDriverTotalRatings() { return driverTotalRatings; }
+    public void setDriverTotalRatings(Integer driverTotalRatings) { this.driverTotalRatings = driverTotalRatings; }
+
+    public Double getDriverReliabilityScore() { return driverReliabilityScore; }
+    public void setDriverReliabilityScore(Double driverReliabilityScore) { this.driverReliabilityScore = driverReliabilityScore; }
 
     public String getFuelType() { return fuelType; }
     public void setFuelType(String fuelType) { this.fuelType = fuelType; }

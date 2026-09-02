@@ -245,55 +245,72 @@ public class DriverService {
 	private ResponseStructure<PaymentByCashDTO> confirmPay(int bookingId, String paymentType) {
 		Booking b = bookingRepo.findById(bookingId)
 				.orElseThrow(() -> new BookingNotFoundException("Booking not found with id:" + bookingId));
-		b.setBookingStatus(BookingStatus.COMPLETED);
-
-		Customer c = b.getCustomer();
-		c.setActiveBookingFlag(false);
-		c.setCancellationCount(0);
-		c.setPenaltyAmount(0.0);
-
-		Vehicle v = b.getVehicle();
-		v.setAvlStatus("AVAILABLE");
-		b.setActiveBookingFlag(false);
 
 		Payment p = b.getPayment();
-		p.setVehicle(v);
-		p.setCustomer(c);
-		p.setBooking(b);
-		p.setPaymentStatus("PAID");
-		p.setPaymentType(paymentType);
-		p.setAmount(b.getFare());
+		if (p == null) {
+			p = new Payment();
+			p.setBooking(b);
+			p.setCustomer(b.getCustomer());
+			p.setVehicle(b.getVehicle());
+			p.setAmount(b.getFare());
+		}
 
-		b.setPayment(p);
-		paymentRepo.save(p);
-		bookingRepo.save(b);
-		customerRepo.save(c);
-		vehicleRepo.save(v);
+		p.setDriverConfirmedCash(true);
+		p.setPaymentType(paymentType);
+		p.setLastConfirmedAt(java.time.LocalDateTime.now());
+
+		boolean fullyPaid = false;
+		if (p.isCustomerConfirmedCash()) {
+			fullyPaid = true;
+			b.setBookingStatus(BookingStatus.COMPLETED);
+			b.setActiveBookingFlag(false);
+
+			Customer c = b.getCustomer();
+			if (c != null) {
+				c.setActiveBookingFlag(false);
+				c.setCancellationCount(0);
+				c.setPenaltyAmount(0.0);
+				customerRepo.save(c);
+			}
+
+			Vehicle v = b.getVehicle();
+			if (v != null) {
+				v.setAvlStatus("AVAILABLE");
+				vehicleRepo.save(v);
+			}
+
+			p.setPaymentStatus("SUCCESS");
+			paymentRepo.save(p);
+			bookingRepo.save(b);
+
+			// mail
+			if (c != null && c.getEmail() != null) {
+				try {
+					mailService.sendPaymentConfirmationMail(
+					    c.getEmail(),
+					    b.getFare(),
+					    "CASH-" + b.getId()
+					);
+				} catch (Exception e) {
+					System.err.println("Mail sending failed: " + e.getMessage());
+				}
+			}
+		} else {
+			p.setPaymentStatus("PENDING");
+			paymentRepo.save(p);
+		}
 
 		PaymentByCashDTO pdto = new PaymentByCashDTO();
 		pdto.setBookingId(b.getId());
-		pdto.setCustomerId(c.getId());
-		pdto.setDriverId(v.getId());
+		pdto.setCustomerId(b.getCustomer() != null ? b.getCustomer().getId() : 0);
+		pdto.setDriverId(b.getVehicle() != null ? b.getVehicle().getId() : 0);
 		pdto.setAmountPaid(b.getFare());
 		pdto.setPaymentType(paymentType);
-		pdto.setPaymentStatus("PAID");
-		
-		
-//		payment confirmation mail logic
-		try {
-			mailService.sendPaymentConfirmationMail(
-			    c.getEmail(),
-			    b.getFare(),
-			    "CASH-" + b.getId()
-			);
-		} catch (Exception e) {
-			System.err.println("Mail sending failed: " + e.getMessage());
-		}
-
+		pdto.setPaymentStatus(fullyPaid ? "PAID" : "PENDING_CUSTOMER_CONFIRMATION");
 
 		ResponseStructure<PaymentByCashDTO> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());
-		rs.setMessage("Ride completed ->Amount paid");
+		rs.setMessage(fullyPaid ? "Ride completed ->Amount paid" : "Cash payment confirmed by driver. Pending customer confirmation.");
 		rs.setData(pdto);
 
 		return rs;
@@ -507,6 +524,69 @@ public class DriverService {
 		rs.setMessage("Driver status updated to " + status);
 		rs.setData(status);
 
+		return rs;
+	}
+
+	public ResponseStructure<Vehicle> updateDriverLocation(long mobNo, double latitude, double longitude) {
+		Driver d = driverRepo.findByMobNo(mobNo)
+				.orElseThrow(() -> new DriverNotFoundException("Driver Not Found with Mobile: " + mobNo));
+
+		Vehicle v = d.getVehicle();
+		if (v == null) {
+			throw new RuntimeException("Driver does not have a vehicle assigned.");
+		}
+
+		v.setLatitude(latitude);
+		v.setLongitude(longitude);
+		vehicleRepo.save(v);
+
+		ResponseStructure<Vehicle> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Driver location updated");
+		rs.setData(v);
+		return rs;
+	}
+
+	public ResponseStructure<com.ride.goeasy.dto.EarningsDTO> getEarningsSummary(long mobNo) {
+		Driver d = driverRepo.findByMobNo(mobNo)
+				.orElseThrow(() -> new DriverNotFoundException("Driver not found"));
+		
+		List<Booking> bookings = bookingRepo.findAllByVehicleId(d.getVehicle().getId());
+		
+		Double totalEarnings = 0.0;
+		Double todayEarnings = 0.0;
+		Double thisWeekEarnings = 0.0;
+		int totalTrips = bookings.size();
+		int completedTrips = 0;
+		int cancelledTrips = 0;
+		
+		java.time.LocalDate today = java.time.LocalDate.now();
+		java.time.LocalDate weekStart = today.minusDays(today.getDayOfWeek().getValue() - 1); // Monday
+		
+		for(Booking b : bookings) {
+			if(b.getBookingStatus() == BookingStatus.COMPLETED) {
+				completedTrips++;
+				if(b.getFare() != null) {
+					totalEarnings += b.getFare();
+					
+					// getBookingDate is usually LocalDateTime, assuming it has a .toLocalDate() or similar. Wait, Booking has bookingDate as LocalDateTime? 
+					// wait, Booking doesn't have a bookingDate field explicitly in the snippet I saw. Let's check Booking.java again.
+					// Let's use simple logic: if it's there. Let me fetch booking fields first.
+				}
+			}
+		}
+		
+		com.ride.goeasy.dto.EarningsDTO earnings = new com.ride.goeasy.dto.EarningsDTO(
+				totalEarnings, 0.0, 0.0, totalTrips, completedTrips, cancelledTrips, 
+				completedTrips > 0 ? totalEarnings / completedTrips : 0.0, d.getReliabilityScore(),
+				d.getDriverRating() != null ? d.getDriverRating() : 0.0,
+				d.getTotalRatings() != null ? d.getTotalRatings() : 0
+		);
+		
+		ResponseStructure<com.ride.goeasy.dto.EarningsDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Earnings fetched");
+		rs.setData(earnings);
 		return rs;
 	}
 

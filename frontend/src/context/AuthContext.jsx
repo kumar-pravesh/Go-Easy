@@ -14,8 +14,8 @@ export const AuthProvider = ({ children }) => {
             return null;
         }
     });
-    const [role, setRole] = useState(null); // 'USER' or 'DRIVER'
-    const [token, setToken] = useState(localStorage.getItem('token'));
+    const [role, setRole] = useState(() => localStorage.getItem('role'));
+    const [token, setToken] = useState(() => localStorage.getItem('token'));
 
     // Configure Axios default header
     useEffect(() => {
@@ -48,7 +48,9 @@ export const AuthProvider = ({ children }) => {
                     role: backendRole 
                 };
                 setUser(userData);
+                setRole(backendRole);
                 localStorage.setItem('user', JSON.stringify(userData));
+                localStorage.setItem('role', backendRole);
                 return true;
             }
             return false;
@@ -63,6 +65,7 @@ export const AuthProvider = ({ children }) => {
         setRole(null);
         setToken(null);
         localStorage.removeItem('user');
+        localStorage.removeItem('role');
     };
 
     return (

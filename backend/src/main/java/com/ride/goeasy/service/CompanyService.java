@@ -221,4 +221,28 @@ public class CompanyService {
         });
         System.out.println("Corporate wallet monthly usage reset for " + newMonth);
     }
+
+    // ── Remove employee from corporate plan ─────────────────────────
+    public ResponseStructure<String> removeEmployee(Integer companyId, Long customerMobno) {
+        Company company = companyRepo.findById(companyId)
+                .orElseThrow(() -> new RuntimeException("Company not found"));
+        Customer customer = customerRepo.findByMobno(customerMobno)
+                .orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+
+        CorporateWallet wallet = walletRepo.findByCustomerAndActiveTrue(customer)
+                .orElseThrow(() -> new RuntimeException("Employee not linked to any active corporate plan"));
+
+        if (!wallet.getCompany().getId().equals(company.getId())) {
+            throw new RuntimeException("Employee does not belong to this company");
+        }
+
+        wallet.setActive(false);
+        walletRepo.save(wallet);
+
+        ResponseStructure<String> rs = new ResponseStructure<>();
+        rs.setStatusCode(200);
+        rs.setMessage("Employee removed from corporate plan");
+        rs.setData("Removed: " + customer.getName());
+        return rs;
+    }
 }

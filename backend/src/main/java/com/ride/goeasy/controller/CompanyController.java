@@ -50,4 +50,11 @@ public class CompanyController {
     public ResponseStructure<Map<String, Object>> employeeWallet(@RequestParam Long mobNo) {
         return companyService.getEmployeeWallet(mobNo);
     }
+
+    @PostMapping("/removeEmployee")
+    public ResponseStructure<String> removeEmployee(
+            @RequestParam Integer companyId,
+            @RequestParam Long customerMobno) {
+        return companyService.removeEmployee(companyId, customerMobno);
+    }
 }

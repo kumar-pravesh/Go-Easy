@@ -44,6 +44,11 @@ public class Payment {
 
     private String paymentStatus; //  "SUCCESS", "FAILED", "PENDING"
 
+    private boolean driverConfirmedCash;
+    private boolean customerConfirmedCash;
+    private java.time.LocalDateTime paymentDisputedAt;
+    private java.time.LocalDateTime lastConfirmedAt; // to track when the first party confirmed cash for timeout purposes
+
     public Payment() {}
 
     public Payment(Customer customer, Vehicle vehicle, Booking booking, 
@@ -106,6 +111,38 @@ public class Payment {
 
     public void setPaymentStatus(String paymentStatus) {
         this.paymentStatus = paymentStatus;
+    }
+
+    public boolean isDriverConfirmedCash() {
+        return driverConfirmedCash;
+    }
+
+    public void setDriverConfirmedCash(boolean driverConfirmedCash) {
+        this.driverConfirmedCash = driverConfirmedCash;
+    }
+
+    public boolean isCustomerConfirmedCash() {
+        return customerConfirmedCash;
+    }
+
+    public void setCustomerConfirmedCash(boolean customerConfirmedCash) {
+        this.customerConfirmedCash = customerConfirmedCash;
+    }
+
+    public java.time.LocalDateTime getPaymentDisputedAt() {
+        return paymentDisputedAt;
+    }
+
+    public void setPaymentDisputedAt(java.time.LocalDateTime paymentDisputedAt) {
+        this.paymentDisputedAt = paymentDisputedAt;
+    }
+
+    public java.time.LocalDateTime getLastConfirmedAt() {
+        return lastConfirmedAt;
+    }
+
+    public void setLastConfirmedAt(java.time.LocalDateTime lastConfirmedAt) {
+        this.lastConfirmedAt = lastConfirmedAt;
     }
 }
 

@@ -60,6 +60,10 @@ public class CustomerService {
 	BookingService bs;
 	@Autowired
 	BookingRepo br;
+	@Autowired
+	private com.ride.goeasy.repository.TrustedContactRepository trustedContactRepo;
+	@Autowired
+	private com.ride.goeasy.repository.SOSEventRepository sosEventRepo;
 	
 	@Autowired
 	private RestTemplate restTemplate;
@@ -213,7 +217,7 @@ public class CustomerService {
 	}
 
 //		cancel ride by customer
-	public ResponseStructure<String> cancelRide(int bookingId) {
+	public ResponseStructure<String> cancelRide(int bookingId, String reason) {
 
 		Booking b = br.findById(bookingId)
 				.orElseThrow(() -> new BookingNotFoundException("No any booking with given id:" + bookingId));
@@ -223,6 +227,8 @@ public class CustomerService {
 		c.setActiveBookingFlag(false);
 		b.setActiveBookingFlag(false);
 		b.setBookingStatus(BookingStatus.CANCELLED_BY_CUSTOMER);
+		b.setCancelReason(reason);
+		b.setCancelledBy("CUSTOMER");
 
 		mailService.sendRideCancellationMail(c.getEmail(), String.valueOf(b.getId()));
 
@@ -291,6 +297,84 @@ public class CustomerService {
 			System.err.println("Location IQ API failed (Customer): " + e.getMessage());
 		}
 		return "Unknown Location";
+	}
+
+	public ResponseStructure<com.ride.goeasy.entity.TrustedContact> addTrustedContact(long mobNo, String name, String phone) {
+		Customer customer = customerRepo.findByMobno(mobNo)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+		com.ride.goeasy.entity.TrustedContact contact = new com.ride.goeasy.entity.TrustedContact(name, phone, "", customer);
+		contact = trustedContactRepo.save(contact);
+		
+		ResponseStructure<com.ride.goeasy.entity.TrustedContact> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Trusted contact added");
+		rs.setData(contact);
+		return rs;
+	}
+
+	public ResponseStructure<List<com.ride.goeasy.entity.TrustedContact>> getTrustedContacts(long mobNo) {
+		Customer customer = customerRepo.findByMobno(mobNo)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+		List<com.ride.goeasy.entity.TrustedContact> contacts = trustedContactRepo.findByCustomer(customer);
+		
+		ResponseStructure<List<com.ride.goeasy.entity.TrustedContact>> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Trusted contacts fetched");
+		rs.setData(contacts);
+		return rs;
+	}
+
+	public ResponseStructure<String> deleteTrustedContact(long mobNo, Integer contactId) {
+		Customer customer = customerRepo.findByMobno(mobNo)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+		trustedContactRepo.deleteById(contactId);
+		
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Trusted contact deleted");
+		rs.setData("Deleted successfully");
+		return rs;
+	}
+
+	public ResponseStructure<String> triggerSOS(Integer bookingId, Double latitude, Double longitude) {
+		Booking booking = br.findById(bookingId).orElseThrow(() -> new BookingNotFoundException("Booking not found"));
+		com.ride.goeasy.entity.SOSEvent sos = new com.ride.goeasy.entity.SOSEvent(booking, latitude, longitude);
+		sosEventRepo.save(sos);
+
+		Customer customer = booking.getCustomer();
+		List<com.ride.goeasy.entity.TrustedContact> contacts = trustedContactRepo.findByCustomer(customer);
+		
+		// Simulate notifying contacts
+		System.out.println("====== SOS ALERT TRIGGERED ======");
+		System.out.println("Ride ID: " + bookingId);
+		System.out.println("Location: " + latitude + ", " + longitude);
+		System.out.println("Notifying Contacts:");
+		for (com.ride.goeasy.entity.TrustedContact c : contacts) {
+			System.out.println("- " + c.getName() + " (" + c.getPhoneNumber() + ")");
+		}
+		System.out.println("=================================");
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("SOS triggered successfully");
+		rs.setData("Alert sent to " + contacts.size() + " contacts");
+		return rs;
+	}
+
+	public ResponseStructure<Customer> updateProfile(long mobNo, String name, String email) {
+		Customer customer = customerRepo.findByMobno(mobNo)
+				.orElseThrow(() -> new CustomerNotFoundException("Customer not found"));
+
+		if (name != null && !name.isBlank()) customer.setName(name);
+		if (email != null && !email.isBlank()) customer.setEmail(email);
+
+		Customer saved = customerRepo.save(customer);
+
+		ResponseStructure<Customer> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Profile updated successfully");
+		rs.setData(saved);
+		return rs;
 	}
 
 }

@@ -15,9 +15,16 @@ import com.ride.goeasy.repository.VehicleRepo;
 @Component
 public class RideSchedulerTask {
 
-    @Autowired private BookingRepo bookingRepo;
-    @Autowired private VehicleRepo vehicleRepo;
-    @Autowired private MailService mailService;
+    private final BookingRepo bookingRepo;
+    private final VehicleRepo vehicleRepo;
+    private final MailService mailService;
+
+    @Autowired
+    public RideSchedulerTask(BookingRepo bookingRepo, VehicleRepo vehicleRepo, MailService mailService) {
+        this.bookingRepo = bookingRepo;
+        this.vehicleRepo = vehicleRepo;
+        this.mailService = mailService;
+    }
 
     /**
      * Runs every 5 minutes.

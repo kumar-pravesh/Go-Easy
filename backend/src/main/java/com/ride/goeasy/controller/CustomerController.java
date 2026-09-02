@@ -62,9 +62,12 @@ public class CustomerController {
 		    
 		}
 	    @PostMapping("/cancelRide")
-	    public ResponseStructure<String> cancelRide(@RequestParam int bookingId){
-	    	return customerService.cancelRide(bookingId);
+	    public ResponseStructure<String> cancelRide(
+				@RequestParam int bookingId,
+				@RequestParam(required = false) String reason) {
+	    	return customerService.cancelRide(bookingId, reason);
 	    }
+
 
 	@GetMapping("/scheduledRides")
 	public ResponseStructure<java.util.List<com.ride.goeasy.entity.Booking>> scheduledRides(@RequestParam long mobNo) {
@@ -79,5 +82,41 @@ public class CustomerController {
 		rs.setMessage("Current Location Fetched");
 		rs.setData(city);
 		return rs;
+	}
+
+	@PostMapping("/addTrustedContact")
+	public ResponseStructure<com.ride.goeasy.entity.TrustedContact> addTrustedContact(
+			@RequestParam long mobNo,
+			@RequestParam String name,
+			@RequestParam String phone) {
+		return customerService.addTrustedContact(mobNo, name, phone);
+	}
+
+	@GetMapping("/getTrustedContacts")
+	public ResponseStructure<java.util.List<com.ride.goeasy.entity.TrustedContact>> getTrustedContacts(@RequestParam long mobNo) {
+		return customerService.getTrustedContacts(mobNo);
+	}
+
+	@DeleteMapping("/deleteTrustedContact")
+	public ResponseStructure<String> deleteTrustedContact(
+			@RequestParam long mobNo,
+			@RequestParam Integer contactId) {
+		return customerService.deleteTrustedContact(mobNo, contactId);
+	}
+
+	@PostMapping("/sos")
+	public ResponseStructure<String> triggerSOS(
+			@RequestParam Integer bookingId,
+			@RequestParam Double latitude,
+			@RequestParam Double longitude) {
+		return customerService.triggerSOS(bookingId, latitude, longitude);
+	}
+
+	@PutMapping("/updateProfile")
+	public ResponseStructure<com.ride.goeasy.entity.Customer> updateProfile(
+			@RequestParam long mobNo,
+			@RequestParam(required = false) String name,
+			@RequestParam(required = false) String email) {
+		return customerService.updateProfile(mobNo, name, email);
 	}
 }

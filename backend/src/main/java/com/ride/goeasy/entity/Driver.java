@@ -3,11 +3,13 @@ package com.ride.goeasy.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
 
@@ -56,6 +58,10 @@ public class Driver {
     private Double driverRating = 0.0;
     private Integer totalRatings = 0;
 
+    // Reliability score: starts at 100, -5 per driver cancel, +1 per completed ride (min 0, max 100)
+    @jakarta.persistence.Column(columnDefinition = "DOUBLE PRECISION DEFAULT 100.0")
+    private Double reliabilityScore = 100.0;
+
     // Auto-calculates tier from verification flags
     public void recalculateTier() {
         if (backgroundCheckPassed && cleanRecordSince != null
@@ -70,18 +76,17 @@ public class Driver {
     
 
     @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL)
-    @JsonManagedReference
     private Vehicle vehicle;
     
-    @OneToMany
-    List<Booking> dblist;
+    @OneToMany(mappedBy = "driver", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<Booking> dblist = new ArrayList<>();
     
-   
+    
 
     public List<Booking> getDblist() {
-		return dblist;
-	}
-
+        return dblist;
+    }
 	public void setDblist(List<Booking> dblist) {
 		this.dblist = dblist;
 	}
@@ -264,6 +269,9 @@ public class Driver {
 
 	public java.time.LocalDate getCleanRecordSince() { return cleanRecordSince; }
 	public void setCleanRecordSince(java.time.LocalDate cleanRecordSince) { this.cleanRecordSince = cleanRecordSince; }
+
+	public Double getReliabilityScore() { return reliabilityScore; }
+	public void setReliabilityScore(Double reliabilityScore) { this.reliabilityScore = reliabilityScore; }
 
     @Override
     public String toString() {

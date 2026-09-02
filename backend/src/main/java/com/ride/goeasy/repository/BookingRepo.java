@@ -20,6 +20,7 @@ public interface BookingRepo extends JpaRepository<Booking, Integer> {
     List<Booking> findByVehicleDriverMobNo(Long mobNo);
     Booking findByVehicleDriverMobNoAndBookingStatus(Long mobNo, String bookingStatus);
     List<Booking> findByVehicleDriverAndBookingStatus(Driver driver, BookingStatus bookingStatus);
+    List<Booking> findAllByVehicleId(Integer vehicleId);
 
     // Scheduled rides whose pickup is within the next 30 minutes and haven't been notified yet
     @Query("SELECT b FROM Booking b WHERE b.scheduled = true AND b.scheduledNotifSent = false " +
@@ -28,4 +29,8 @@ public interface BookingRepo extends JpaRepository<Booking, Integer> {
 
     // Upcoming scheduled rides for a customer
     List<Booking> findByCustomerMobnoAndScheduledTrueAndBookingStatus(Long mobno, BookingStatus status);
+
+    // Ongoing rides that started before a given time (for safety monitor)
+    @Query("SELECT b FROM Booking b WHERE b.bookingStatus = 'ONGOING' AND b.rideStartedAt IS NOT NULL AND b.rideStartedAt < :cutoff")
+    List<Booking> findOngoingRidesStartedBefore(@Param("cutoff") java.time.LocalDateTime cutoff);
 }

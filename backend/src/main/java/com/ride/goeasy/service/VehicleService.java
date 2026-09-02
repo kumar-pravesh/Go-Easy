@@ -167,6 +167,8 @@ public class VehicleService {
                 dto.setDriverRidePreference(d.getRidePreference());
                 dto.setDriverVerificationTier(d.getVerificationTier());
                 dto.setDriverRating(d.getDriverRating() != null ? d.getDriverRating() : 0.0);
+                dto.setDriverTotalRatings(d.getTotalRatings() != null ? d.getTotalRatings() : 0);
+                dto.setDriverReliabilityScore(d.getReliabilityScore() != null ? d.getReliabilityScore() : 100.0);
             }
 
             vehicleDetails.add(dto);

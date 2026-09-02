@@ -53,7 +53,16 @@ const Login = () => {
         try {
             const success = await login(mobile, password, isDriver ? 'DRIVER' : 'USER');
             if (success) {
-                navigate(isDriver ? '/driver' : '/home');
+                // If user role is ADMIN, login sets the user. 
+                // We'll need a way to know if they are an admin.
+                // Currently `login` returns a boolean. Let's redirect based on user role if available, but `user` context might not update synchronously.
+                // The `AuthContext`'s `login` function saves role to localStorage. Let's check it.
+                const storedRole = localStorage.getItem('role');
+                if (storedRole === 'ADMIN') {
+                    navigate('/admin');
+                } else {
+                    navigate(isDriver ? '/driver' : '/home');
+                }
             }
         } catch (err) {
             if (!err.response) {

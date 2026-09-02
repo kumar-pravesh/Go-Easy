@@ -16,6 +16,7 @@ import com.ride.goeasy.dto.BookingHistoryDTO;
 import com.ride.goeasy.dto.PaymentByCashDTO;
 import com.ride.goeasy.dto.PaymentByUpiDTO;
 import com.ride.goeasy.entity.Driver;
+import com.ride.goeasy.entity.Vehicle;
 import com.ride.goeasy.response.ResponseStructure;
 import com.ride.goeasy.service.BookingService;
 import com.ride.goeasy.service.DriverService;
@@ -36,6 +37,16 @@ public class DriverController {
 	@PostMapping("/save")
 	public ResponseStructure<Driver> saveDriverWithVehicle(@RequestBody Driver driver) {
 		return driverService.saveDriverWithVehicle(driver);
+	}
+
+	@PostMapping("/updateLocation")
+	public ResponseStructure<Vehicle> updateLocation(@RequestParam long mobNo, @RequestParam double lat, @RequestParam double lon) {
+		return driverService.updateDriverLocation(mobNo, lat, lon);
+	}
+
+	@GetMapping("/earnings")
+	public ResponseStructure<com.ride.goeasy.dto.EarningsDTO> getEarnings(@RequestParam long mobNo) {
+		return driverService.getEarningsSummary(mobNo);
 	}
 
 	// find operation
@@ -90,8 +101,10 @@ public class DriverController {
 
  // Driver cancel booking	
 	@PutMapping("/cancel/{bookingId}")
-	public ResponseStructure<String> driverCancel(@PathVariable int bookingId) {
-	    return bookingService.cancelBookingByDriver(bookingId);
+	public ResponseStructure<String> driverCancel(
+			@PathVariable int bookingId,
+			@RequestParam(required = false) String reason) {
+	    return bookingService.cancelBookingByDriver(bookingId, reason);
 	}
 
 	@PutMapping("/status")

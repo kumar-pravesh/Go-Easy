@@ -60,6 +60,15 @@ public class BookingService {
 	@Autowired
 	private com.ride.goeasy.service.CompanyService companyService;
 
+	@Autowired
+	private com.ride.goeasy.repository.PromoCodeRepo promoCodeRepo;
+
+	@Autowired
+	private com.ride.goeasy.repository.SOSEventRepository sosEventRepo;
+
+	@Autowired
+	private com.ride.goeasy.repository.TrustedContactRepository trustedContactRepo;
+
 
 	public ResponseStructure<Booking> bookVehicle(long mobno, BookingRequestDTO bookingRequestDTO) {
 
@@ -129,8 +138,21 @@ public class BookingService {
 		b.setVehicle(vehicle);
 		b.setSourceLocation(sourceCity);
 		b.setDestinationLocation(bookingRequestDTO.getDestinationLocation());
-		b.setFare(bookingRequestDTO.getFare());
-		b.setDistance(bookingRequestDTO.getDistance());
+		// ⭐ Server-Side Fare Calculation (Sprint 1) ⭐
+		double lockedDistance = bookingRequestDTO.getDistance();
+		double lockedRate = (vehicle.getPricePerKm() != null && vehicle.getPricePerKm() < 25) ? vehicle.getPricePerKm() : 12.0;
+		double baseFare = 100.0;
+		double distanceFare = lockedDistance * lockedRate;
+		double penaltyAmount = (cust.getPenaltyAmount() != null) ? cust.getPenaltyAmount() : 0.0;
+		double finalFare = baseFare + distanceFare + penaltyAmount;
+
+		b.setBaseFare(baseFare);
+		b.setDistanceFare(distanceFare);
+		b.setPenaltyAmount(penaltyAmount);
+		b.setPricePerKm(lockedRate);
+		b.setFare(finalFare);
+		b.setFareLocked(true);
+		b.setDistance(lockedDistance);
 		b.setEstimatedTime(bookingRequestDTO.getEstimatedTime());
 		// Scheduled ride handling
 		boolean isScheduled = bookingRequestDTO.getScheduledTime() != null
@@ -145,13 +167,13 @@ public class BookingService {
 			b.setFareLockedAtBooking(true);
 		}
 
+		Driver d = vehicle.getDriver();
 		b.setBookingStatus(BookingStatus.BOOKED);
 		b.setPayment(p);
-		b.setActiveBookingFlag(true);
+        b.setDriver(d);
 		b.setPaymentMode(bookingRequestDTO.getPaymentMode());
 		b.setRideDate(java.time.LocalDate.now());
 		cust.getBookings().add(b);
-		Driver d = vehicle.getDriver();
 
 		// Check if vehicle is actually available (Double Check)
 		if(!"AVAILABLE".equalsIgnoreCase(vehicle.getAvlStatus())) {
@@ -284,7 +306,7 @@ public class BookingService {
 
 	// Booking Cancel by Driver
 
-	public ResponseStructure<String> cancelBookingByDriver(int bookingId) {
+	public ResponseStructure<String> cancelBookingByDriver(int bookingId, String reason) {
 		Booking booking = bookingRepo.findById(bookingId)
 				.orElseThrow(() -> new RuntimeException("Booking not found"));
 
@@ -293,6 +315,11 @@ public class BookingService {
 			driver = booking.getVehicle().getDriver();
 			// Free up vehicle immediately
 			booking.getVehicle().setAvlStatus("AVAILABLE");
+			vr.save(booking.getVehicle());
+			
+			if (driver != null) {
+				driver.getDblist().remove(booking);
+			}
 		}
 
 		Customer customer = booking.getCustomer();
@@ -307,40 +334,37 @@ public class BookingService {
 			driver.setDailyCancelCount(driver.getDailyCancelCount() + 1);
 		}
 
-		// Cancel booking
-		booking.setBookingStatus(BookingStatus.CANCELLED_BY_DRIVER);
-		booking.setActiveBookingFlag(false);
-
-		// Reset customer active booking if exists
-		if (customer != null) {
-			customer.setActiveBookingFlag(false);
+		// Deduct 5 points from reliability score
+		if (driver != null) {
+			double score = driver.getReliabilityScore() != null ? driver.getReliabilityScore() : 100.0;
+			driver.setReliabilityScore(Math.max(0.0, score - 5.0));
 		}
 
-		// Block driver if more than 4 cancels in a day (only if driver exists)
+		// Block driver if more than 4 cancels in a day
 		if (driver != null && driver.getDailyCancelCount() > 4) {
 			driver.setDstatus("TEMPORARY_BLOCKED");
-			if (booking.getVehicle() != null) {
-				booking.getVehicle().setAvlStatus("TEMPORARY_BLOCKED");
+			if (driver.getVehicle() != null) {
+				driver.getVehicle().setAvlStatus("TEMPORARY_BLOCKED");
+				vr.save(driver.getVehicle());
 			}
 		}
-
-		// Save updates
-		bookingRepo.save(booking);
+		
 		if (driver != null) dr.save(driver);
-		if (customer != null) customerRepo.save(customer);
 
-		// Cancellation email (Best Effort)
-		if (customer != null) {
-			try {
-				mailService.sendRideCancellationMail(customer.getEmail(), String.valueOf(booking.getId()));
-			} catch (Exception e) {
-				System.out.println("Cancellation mail failed: " + e.getMessage());
-			}
-		}
+		// AUTO-REMATCH LOGIC
+		// Keep booking as BOOKED to allow another driver to accept it (or nearest driver logic)
+		booking.setBookingStatus(BookingStatus.BOOKED);
+		booking.setDriver(null);
+		booking.setVehicle(null);
+		booking.setCancelReason(reason);
+		booking.setCancelledBy("DRIVER");
+		// Do not disable customer activeBookingFlag, they are still waiting
+		
+		bookingRepo.save(booking);
 
 		ResponseStructure<String> rs = new ResponseStructure<>();
 		rs.setStatusCode(HttpStatus.OK.value());
-		rs.setMessage("Booking cancelled by driver");
+		rs.setMessage("Booking cancelled by driver. Auto-rematching customer.");
 		rs.setData(null);
 
 		return rs;
@@ -370,6 +394,7 @@ public class BookingService {
 
 	    booking.setStartOtpVerified(true);
 	    booking.setBookingStatus(BookingStatus.ONGOING);
+	    booking.setRideStartedAt(java.time.LocalDateTime.now());
 
 	    bookingRepo.save(booking);
 
@@ -452,6 +477,14 @@ public class BookingService {
 	    Customer cust = booking.getCustomer();
 	    cust.setActiveBookingFlag(true); // Keep active until payment confirmed
 
+		// Reward driver reliability (+1 point, max 100)
+		Driver driver = booking.getVehicle() != null ? booking.getVehicle().getDriver() : null;
+		if (driver != null) {
+			double score = driver.getReliabilityScore() != null ? driver.getReliabilityScore() : 100.0;
+			driver.setReliabilityScore(Math.min(100.0, score + 1.0));
+			dr.save(driver);
+		}
+
 	    bookingRepo.save(booking);
 	    customerRepo.save(cust);
 
@@ -524,6 +557,223 @@ public class BookingService {
 		rs.setStatusCode(HttpStatus.OK.value());
 		rs.setMessage(accept ? "Recording is ACTIVE. Stored 24 hrs, then auto-deleted." : "Driver declined recording.");
 		rs.setData(b.getRecordingConsent());
+		return rs;
+	}
+
+	public ResponseStructure<com.ride.goeasy.dto.RideReceiptDTO> getRideReceipt(int bookingId) {
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
+
+		com.ride.goeasy.dto.RideReceiptDTO dto = new com.ride.goeasy.dto.RideReceiptDTO();
+		dto.setBookingId(b.getId());
+		dto.setReceiptNumber("GE-" + b.getRideDate() + "-" + b.getId());
+		dto.setRideDate(b.getRideDate());
+		dto.setSourceLocation(b.getSourceLocation());
+		dto.setDestinationLocation(b.getDestinationLocation());
+		dto.setDistance(b.getDistance());
+		dto.setEstimatedTime(b.getEstimatedTime());
+		dto.setBookingStatus(b.getBookingStatus() != null ? b.getBookingStatus().name() : null);
+
+		Customer customer = b.getCustomer();
+		if (customer != null) {
+			dto.setCustomerName(customer.getName());
+			dto.setCustomerMobile(customer.getMobno());
+		}
+
+		Vehicle vehicle = b.getVehicle();
+		if (vehicle != null) {
+			dto.setVehicleNumber(vehicle.getVehicleNumber());
+			dto.setVehicleModel(vehicle.getVehicleModel());
+			Driver driver = vehicle.getDriver();
+			if (driver != null) {
+				dto.setDriverName(driver.getDname());
+				dto.setDriverMobile(driver.getMobNo());
+			}
+		}
+
+		dto.setBaseFare(b.getBaseFare());
+		dto.setDistanceFare(b.getDistanceFare());
+		dto.setPenaltyAmount(b.getPenaltyAmount());
+		dto.setWaitingCharge(b.getWaitingCharge());
+		dto.setNightCharge(b.getNightCharge());
+		dto.setPlatformFee(b.getPlatformFee());
+		dto.setTax(b.getTax());
+		dto.setDiscount(b.getDiscount());
+		dto.setPricePerKm(b.getPricePerKm());
+		dto.setTotalFare(b.getFare());
+		dto.setFareLocked(b.isFareLocked());
+		dto.setPaymentMode(b.getPaymentMode());
+
+		Payment payment = b.getPayment();
+		if (payment != null) {
+			dto.setPaymentType(payment.getPaymentType());
+			dto.setPaymentStatus(payment.getPaymentStatus());
+			dto.setAmountPaid(payment.getAmount());
+		}
+
+		ResponseStructure<com.ride.goeasy.dto.RideReceiptDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Ride receipt fetched");
+		rs.setData(dto);
+		return rs;
+	}
+
+	public ResponseStructure<com.ride.goeasy.dto.PublicTrackingDTO> getPublicTracking(Integer bookingId) {
+		Booking b = bookingRepo.findById(bookingId).orElseThrow(() -> new com.ride.goeasy.exception.BookingNotFoundException("Booking not found"));
+		
+		com.ride.goeasy.dto.PublicTrackingDTO dto = new com.ride.goeasy.dto.PublicTrackingDTO();
+		dto.setBookingId(b.getId());
+		dto.setSourceLocation(b.getSourceLocation());
+		dto.setDestinationLocation(b.getDestinationLocation());
+		if (b.getBookingStatus() != null) {
+			dto.setBookingStatus(b.getBookingStatus().name());
+		}
+		
+		if (b.getVehicle() != null) {
+			dto.setVehicleModel(b.getVehicle().getVehicleModel());
+			dto.setVehicleNumber(b.getVehicle().getVehicleNumber());
+			dto.setDriverLatitude(b.getVehicle().getLatitude());
+			dto.setDriverLongitude(b.getVehicle().getLongitude());
+			if (b.getVehicle().getDriver() != null) {
+				dto.setDriverName(b.getVehicle().getDriver().getDname());
+			}
+		}
+
+		ResponseStructure<com.ride.goeasy.dto.PublicTrackingDTO> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Tracking details fetched safely");
+		rs.setData(dto);
+		return rs;
+	}
+
+	// ─── Rate Driver (by customer) ─────────────────────────────────────
+	public ResponseStructure<String> rateDriver(int bookingId, int rating) {
+		if (rating < 1 || rating > 5) throw new RuntimeException("Rating must be between 1 and 5");
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found"));
+		if (b.getBookingStatus() != BookingStatus.COMPLETED) {
+			throw new RuntimeException("Can only rate after ride is completed");
+		}
+		if (b.getDriverRating() != null) {
+			throw new RuntimeException("You have already rated this ride");
+		}
+		b.setDriverRating(rating);
+		bookingRepo.save(b);
+
+		// Update driver's running average on the Driver entity
+		Driver driver = b.getDriver();
+		if (driver == null && b.getVehicle() != null) driver = b.getVehicle().getDriver();
+		if (driver != null) {
+			int count = driver.getTotalRatings() == null ? 0 : driver.getTotalRatings();
+			double current = driver.getDriverRating() == null ? 0.0 : driver.getDriverRating();
+			double newAvg = ((current * count) + rating) / (count + 1);
+			driver.setDriverRating(Math.round(newAvg * 10.0) / 10.0);
+			driver.setTotalRatings(count + 1);
+			dr.save(driver);
+		}
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Driver rated successfully");
+		rs.setData("Rating: " + rating + "/5");
+		return rs;
+	}
+
+	// ─── Rate Customer (by driver) ─────────────────────────────────────
+	public ResponseStructure<String> rateCustomer(int bookingId, int rating) {
+		if (rating < 1 || rating > 5) throw new RuntimeException("Rating must be between 1 and 5");
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found"));
+		if (b.getBookingStatus() != BookingStatus.COMPLETED) {
+			throw new RuntimeException("Can only rate after ride is completed");
+		}
+		if (b.getCustomerRating() != null) {
+			throw new RuntimeException("You have already rated this customer");
+		}
+		b.setCustomerRating(rating);
+		bookingRepo.save(b);
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Customer rated successfully");
+		rs.setData("Rating: " + rating + "/5");
+		return rs;
+	}
+
+	// ─── Validate Promo Code ────────────────────────────────────────────
+	public ResponseStructure<java.util.Map<String, Object>> validatePromoCode(String code, double fare) {
+		com.ride.goeasy.entity.PromoCode promo = promoCodeRepo.findByCodeIgnoreCase(code)
+				.orElseThrow(() -> new RuntimeException("Invalid promo code"));
+
+		if (!promo.isActive()) throw new RuntimeException("Promo code is no longer active");
+		if (promo.getValidUntil() != null && promo.getValidUntil().isBefore(java.time.LocalDate.now())) {
+			throw new RuntimeException("Promo code has expired");
+		}
+		if (promo.getUsedCount() >= promo.getUsageLimit()) {
+			throw new RuntimeException("Promo code usage limit reached");
+		}
+		if (fare < promo.getMinFare()) {
+			throw new RuntimeException("Minimum fare of ₹" + promo.getMinFare() + " required");
+		}
+
+		double discountAmount = (fare * promo.getDiscountPercent()) / 100.0;
+		if (promo.getMaxDiscountAmount() > 0) {
+			discountAmount = Math.min(discountAmount, promo.getMaxDiscountAmount());
+		}
+		discountAmount = Math.round(discountAmount * 100.0) / 100.0;
+
+		java.util.Map<String, Object> data = new java.util.HashMap<>();
+		data.put("code", promo.getCode());
+		data.put("discountAmount", discountAmount);
+		data.put("discountPercent", promo.getDiscountPercent());
+		data.put("finalFare", Math.max(0, fare - discountAmount));
+		data.put("description", promo.getDescription());
+
+		ResponseStructure<java.util.Map<String, Object>> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("Promo code valid");
+		rs.setData(data);
+		return rs;
+	}
+
+	// ─── SOS System ────────────────────────────────────────────
+	public ResponseStructure<String> triggerSOS(int bookingId, double latitude, double longitude) {
+		Booking b = bookingRepo.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException("Booking not found"));
+
+		if (b.getBookingStatus() != BookingStatus.ONGOING) {
+			throw new RuntimeException("SOS can only be triggered during an ongoing ride");
+		}
+
+		com.ride.goeasy.entity.SOSEvent event = new com.ride.goeasy.entity.SOSEvent(b, latitude, longitude);
+		sosEventRepo.save(event);
+
+		Customer customer = b.getCustomer();
+		java.util.List<com.ride.goeasy.entity.TrustedContact> contacts = trustedContactRepo.findByCustomer(customer);
+
+		if (contacts != null && !contacts.isEmpty()) {
+			String trackLink = "http://localhost:5173/public-track/" + b.getId(); // Assuming standard frontend URL
+			String subject = "🚨 EMERGENCY SOS: " + customer.getName() + " needs help! 🚨";
+			String body = "Hello,\n\n"
+					+ customer.getName() + " has triggered an SOS alert during their Go-Easy ride.\n\n"
+					+ "Driver: " + b.getVehicle().getDriver().getDname() + "\n"
+					+ "Vehicle: " + b.getVehicle().getVehicleModel() + " (" + b.getVehicle().getVehicleNumber() + ")\n"
+					+ "Route: " + b.getSourceLocation() + " -> " + b.getDestinationLocation() + "\n\n"
+					+ "Track their live location here: " + trackLink + "\n\n"
+					+ "Please check on them immediately or contact authorities.\n\n"
+					+ "– Go-Easy Safety Team";
+
+			for (com.ride.goeasy.entity.TrustedContact c : contacts) {
+				try {
+					mailService.sendMail(c.getEmail(), subject, body);
+				} catch (Exception ignored) {}
+			}
+		}
+
+		ResponseStructure<String> rs = new ResponseStructure<>();
+		rs.setStatusCode(HttpStatus.OK.value());
+		rs.setMessage("SOS triggered. Trusted contacts notified.");
+		rs.setData("SOS_ACTIVE");
 		return rs;
 	}
 }
